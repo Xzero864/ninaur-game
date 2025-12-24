@@ -1,0 +1,19 @@
+---
+alwaysApply: true
+---
+
+We are making an autobattler game. This is a single player game.
+
+The player has 5 characters. On the players turn they all atack one by one.
+
+They have stats, modifiers, and abilities, abilities take in a contextType, this should be a large zod descriminated union.
+
+Modifiers can attack on the start of a turn, when hit by an ability with a certain context type, on Damage, on Heal. There are also permant modifiers that just effect things statically.
+
+Characters have base stats and a list of modifiers.
+
+All rules are applied by the central game-engine.svelte.
+
+---
+
+## alwaysApply: true

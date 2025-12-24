@@ -1,0 +1,10 @@
+---
+description: This task is helpful for character generation! If generating art use this
+alwaysApply: false
+---
+
+Look at these rules https://api.pixellab.ai/mcp/docs for the tools available for character generation."|
+
+Apply when the character generation is requested!
+
+## alwaysApply: true
