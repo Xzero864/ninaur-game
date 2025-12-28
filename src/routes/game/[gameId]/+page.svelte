@@ -3,11 +3,10 @@
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import GameScene from '$lib/components/GameScene.svelte';
-	import VictoryScreen from '$lib/components/VictoryScreen.svelte';
+	import SimpleVictoryScreen from '$lib/components/SimpleVictoryScreen.svelte';
+	import SimpleDefeatScreen from '$lib/components/SimpleDefeatScreen.svelte';
 	import { GameEngine } from '$lib/gameLogic/GameEngine.svelte.js';
 	import { createCharacterFromDb } from '$lib/gameLogic/createCharacterFromDb.js';
-	import { AbilityFactory } from '$lib/gameLogic/abilities/AbilityFactory.js';
-	import type { CharacterType } from '$lib/server/db/schema.js';
 
 	type CharacterWithType = {
 		id: number;
@@ -23,8 +22,6 @@
 			id: number;
 			name: string;
 			imageUrl: string | null;
-			levelTwoAbilityId: string | null;
-			levelThreeAbilityId: string | null;
 			baseStats: {
 				health: number;
 				maxHealth: number;
@@ -72,50 +69,25 @@
 	// Get game engine instance (singleton)
 	const gameEngine = $derived(GameEngine.getInstance());
 
+	let intervalId: ReturnType<typeof setInterval> | null = null;
+	let showSimpleVictory = $state(false);
+	let showSimpleDefeat = $state(false);
+	let showShop = $state(false); // Track if we've navigated to shop to prevent multiple navigations
+	let shouldRestartGame = $state(false);
+	let gameInitialized = $state(false);
+
 	// Initialize game engine when data is loaded
 	$effect(() => {
-		if (!gameQuery.data || !boss) return;
+		if (!gameQuery.data || !boss || gameInitialized) return;
 
 		// Convert database characters to game logic characters
 		const heroes = gameQuery.data.heroes.map(createCharacterFromDb);
 		const bossCharacter = createCharacterFromDb(boss);
 
 		gameEngine.initialize(heroes, bossCharacter);
+		gameInitialized = true;
 	});
 
-	let intervalId: ReturnType<typeof setInterval> | null = null;
-	let showVictory = $state(false);
-	let randomCharacterType = $state<CharacterType | null>(null);
-	let selectionMade = $state(false);
-	let shouldRestartGame = $state(false);
-
-	// Fetch character types for random character selection
-	const characterTypesQuery = createQuery(() => ({
-		queryKey: ['character-types'],
-		queryFn: async (): Promise<CharacterType[]> => {
-			const response = await fetch('/api/character-types');
-			if (!response.ok) {
-				throw new Error('Failed to fetch character types');
-			}
-			return response.json();
-		}
-	}));
-
-	// Get random character type (excluding Boss and types already in team)
-	const getRandomCharacterType = (): CharacterType | null => {
-		if (!characterTypesQuery.data || !gameQuery.data) return null;
-		const heroTypes = characterTypesQuery.data.filter((ct) => ct.name !== 'Boss');
-		if (heroTypes.length === 0) return null;
-
-		// Get character type IDs that already exist in the team
-		const existingTypeIds = new Set(gameQuery.data.heroes.map((h) => h.characterType.id));
-
-		// Filter out character types that already exist in the team
-		const availableTypes = heroTypes.filter((ct) => !existingTypeIds.has(ct.id));
-
-		if (availableTypes.length === 0) return null;
-		return availableTypes[Math.floor(Math.random() * availableTypes.length)];
-	};
 
 	// Auto-start first round when engine is ready and set up auto-progression
 	$effect(() => {
@@ -125,41 +97,49 @@
 			intervalId = null;
 		}
 
-		if (gameEngine) {
-			// Start first round
-			gameEngine.startRound();
+		if (!gameInitialized || !gameEngine || !gameQuery.data) return;
 
-			// Auto-progress through phases every 1 second
-			intervalId = setInterval(() => {
-				const currentEngine = GameEngine.getInstance();
-				if (!currentEngine || currentEngine.isGameOver()) {
-					if (intervalId) {
-						clearInterval(intervalId);
-						intervalId = null;
-					}
-					// Check for victory
-					if (currentEngine && currentEngine.isVictory() && !showVictory) {
-						showVictory = true;
-						randomCharacterType = getRandomCharacterType();
-					}
-					return;
-				}
-
-				if (currentEngine.phase === 'round-end') {
-					// Start next round
-					currentEngine.startRound();
-				} else if (currentEngine.phase === 'action') {
-					// Process next action
-					currentEngine.processNextAction();
-				}
-			}, 1000);
-		}
-
-		// Handle game restart after level up
-		if (shouldRestartGame && gameEngine) {
-			shouldRestartGame = false;
+		// Start a new round if we're not already in a round
+		if (gameEngine.phase === 'round-start' || gameEngine.phase === 'round-end') {
 			gameEngine.startRound();
 		}
+
+		// Auto-progress through phases every 1 second
+		intervalId = setInterval(() => {
+			const currentEngine = GameEngine.getInstance();
+			if (!currentEngine || currentEngine.isGameOver()) {
+				if (intervalId) {
+					clearInterval(intervalId);
+					intervalId = null;
+				}
+				// Check for victory - navigate to shop screen
+				if (currentEngine && currentEngine.isVictory() && !showSimpleVictory && !showShop && !showSimpleDefeat) {
+					showSimpleVictory = true;
+					// After 2 seconds, navigate to shop screen
+					setTimeout(() => {
+						showSimpleVictory = false;
+						showShop = true;
+						goto(`/game/shop/${gameId}`);
+					}, 2000);
+				}
+				// Check for defeat - show defeat screen
+				if (currentEngine && !currentEngine.isVictory() && !showSimpleDefeat && !showShop && !showSimpleVictory) {
+					showSimpleDefeat = true;
+				}
+				return;
+			}
+
+			if (currentEngine.phase === 'round-end') {
+				// Navigate to shop screen when round ends
+				if (!showShop) {
+					showShop = true;
+					goto(`/game/shop/${gameId}`);
+				}
+			} else if (currentEngine.phase === 'action') {
+				// Process next action
+				currentEngine.processNextAction();
+			}
+		}, 1000);
 
 		// Cleanup on destroy
 		return () => {
@@ -168,6 +148,14 @@
 				intervalId = null;
 			}
 		};
+	});
+
+	// Handle game restart after level up
+	$effect(() => {
+		if (shouldRestartGame && gameEngine && gameInitialized) {
+			shouldRestartGame = false;
+			gameEngine.startRound();
+		}
 	});
 </script>
 
@@ -187,182 +175,75 @@
 			</div>
 		</div>
 	{:else if gameQuery.data && gameEngine}
-		<div class="flex flex-col">
-			<!-- Header with Back Button -->
-			<div class="flex items-center justify-between p-4">
-				<button
-					onclick={() => goto('/')}
-					class="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600"
-				>
-					← Back
-				</button>
-				<div class="text-white">
-					Boss Level: <span class="font-semibold text-purple-400">{gameQuery.data.bossLevel}</span>
-				</div>
-			</div>
-
-			<!-- Game Status -->
-			<div class="flex items-center justify-center gap-4 p-4">
-				{#if gameEngine.isGameOver()}
-					{#if gameEngine.isVictory()}
-						<div class="rounded-lg bg-green-600 px-6 py-3 text-xl font-bold text-white">
-							Victory! 🎉
-						</div>
-					{:else}
-						<div class="rounded-lg bg-red-600 px-6 py-3 text-xl font-bold text-white">Defeat!</div>
-					{/if}
-				{:else}
+			<div class="flex flex-col">
+				<!-- Header with Back Button -->
+				<div class="flex items-center justify-between p-4">
+					<button
+						onclick={() => goto('/')}
+						class="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600"
+					>
+						← Back
+					</button>
 					<div class="text-white">
-						Phase: <span class="font-semibold text-purple-400">{gameEngine.phase}</span>
+						Boss Level: <span class="font-semibold text-purple-400">{gameQuery.data.bossLevel}</span>
 					</div>
-					<div class="text-sm text-gray-300">Auto-advancing every 1 second...</div>
+				</div>
+
+				<!-- Game Status -->
+				<div class="flex items-center justify-center gap-4 p-4">
+					{#if gameEngine.isGameOver()}
+						{#if gameEngine.isVictory()}
+							<div class="rounded-lg bg-green-600 px-6 py-3 text-xl font-bold text-white">
+								Victory! 🎉
+							</div>
+						{:else}
+							<div class="rounded-lg bg-red-600 px-6 py-3 text-xl font-bold text-white">Defeat!</div>
+						{/if}
+					{:else}
+						<div class="text-white">
+							Phase: <span class="font-semibold text-purple-400">{gameEngine.phase}</span>
+						</div>
+						<div class="text-sm text-gray-300">Auto-advancing every 1 second...</div>
+					{/if}
+				</div>
+
+				<!-- Game Scene -->
+				{#if gameEngine}
+					<GameScene
+						gameName={gameQuery.data.name}
+						heroes={gameQuery.data.heroes}
+						{boss}
+						{gameEngine}
+						bossLevel={gameQuery.data.bossLevel}
+					/>
 				{/if}
 			</div>
+		{/if}
 
-			<!-- Game Scene -->
-			{#if gameEngine}
-				<GameScene
-					gameName={gameQuery.data.name}
-					heroes={gameQuery.data.heroes}
-					{boss}
-					{gameEngine}
-				/>
-			{/if}
-		</div>
+		<!-- Simple Victory Screen -->
+		{#if showSimpleVictory && gameQuery.data}
+			<SimpleVictoryScreen bossLevel={gameQuery.data.bossLevel} />
+		{/if}
 
-		<!-- Victory Screen -->
-		{#if showVictory && gameEngine && gameQuery.data && randomCharacterType}
-			<VictoryScreen
-				heroes={gameQuery.data.heroes}
-				{randomCharacterType}
-				gameId={Number(gameId)}
-				onSelectLevelUp={async (characterId: number) => {
-					if (!gameId) return;
-
-					try {
-						const character = gameQuery.data?.heroes.find((h) => h.id === characterId);
-						if (!character) {
-							throw new Error('Character not found');
-						}
-
-						const currentLevel = character.level || 1;
-						if (currentLevel >= 2) {
-							alert('Character is already at max level');
-							return;
-						}
-
-						const newLevel = currentLevel + 1;
-
-						const response = await fetch(`/api/games/${gameId}`, {
-							method: 'PUT',
-							headers: {
-								'Content-Type': 'application/json'
-							},
-							body: JSON.stringify({
-								characterId,
-								level: newLevel
-							})
-						});
-
-						if (!response.ok) {
-							throw new Error('Failed to level up character');
-						}
-
-						// Refetch game data to get updated character level
-						await gameQuery.refetch();
-
-						// Reinitialize game engine with updated character abilities
-						if (gameQuery.data && boss) {
-							const heroes = gameQuery.data.heroes.map(createCharacterFromDb);
-							const bossCharacter = createCharacterFromDb(boss);
-							gameEngine.initialize(heroes, bossCharacter);
-						}
-
-						// Close the modal after successful save
-						showVictory = false;
-						selectionMade = false;
-						randomCharacterType = null;
-					} catch (error) {
-						console.error('Error leveling up character:', error);
-						alert('Failed to level up character. Please try again.');
-					}
-				}}
-				onSelectCharacter={async () => {
-					if (!gameId || !randomCharacterType) return;
-
+		<!-- Simple Defeat Screen -->
+		{#if showSimpleDefeat && gameQuery.data}
+			<SimpleDefeatScreen
+				bossLevel={gameQuery.data.bossLevel}
+				onOkay={async () => {
+					// Delete the game
 					try {
 						const response = await fetch(`/api/games/${gameId}`, {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json'
-							},
-							body: JSON.stringify({
-								characterTypeId: randomCharacterType.id
-							})
+							method: 'DELETE'
 						});
-
 						if (!response.ok) {
-							const errorData = await response.json();
-							throw new Error(errorData.error || 'Failed to add character');
+							console.error('Failed to delete game');
 						}
-
-						// Refetch game data to get the new character
-						await gameQuery.refetch();
-
-						// Reinitialize game engine with updated characters
-						if (gameQuery.data && boss) {
-							const heroes = gameQuery.data.heroes.map(createCharacterFromDb);
-							const bossCharacter = createCharacterFromDb(boss);
-							gameEngine.initialize(heroes, bossCharacter);
-						}
-
-						// Close the modal after successful save
-						showVictory = false;
-						selectionMade = false;
-						randomCharacterType = null;
 					} catch (error) {
-						console.error('Error adding character:', error);
-						alert(
-							error instanceof Error ? error.message : 'Failed to add character. Please try again.'
-						);
+						console.error('Error deleting game:', error);
 					}
-				}}
-				onNext={async () => {
-					// Level up boss and restart game
-					if (!gameId) return;
-
-					try {
-						const newBossLevel = (gameQuery.data?.bossLevel || 1) + 1;
-						const response = await fetch(`/api/games/${gameId}`, {
-							method: 'PATCH',
-							headers: {
-								'Content-Type': 'application/json'
-							},
-							body: JSON.stringify({
-								bossLevel: newBossLevel
-							})
-						});
-
-						if (!response.ok) {
-							throw new Error('Failed to level up boss');
-						}
-
-						// Reset game state
-						showVictory = false;
-						selectionMade = false;
-						randomCharacterType = null;
-
-						// Refetch game data and wait for it
-						await gameQuery.refetch();
-
-						// Trigger game restart
-						shouldRestartGame = true;
-					} catch (error) {
-						console.error('Error leveling up boss:', error);
-						alert('Failed to level up boss. Please try again.');
-					}
+					// Navigate to home
+					goto('/');
 				}}
 			/>
 		{/if}
-	{/if}
 </div>

@@ -1,25 +1,27 @@
 <script lang="ts">
 	import Character from './Character.svelte';
 	import AnimationStyles from './AnimationStyles.svelte';
-	import AbilityDisplay from './AbilityDisplay.svelte';
 	import type { Stats } from '$lib/gameLogic/types.js';
-	import type { Ability } from '$lib/gameLogic/abilities/Ability.js';
 	import type { GameEngine } from '$lib/gameLogic/GameEngine.svelte.js';
 	import { AnimationEngine } from '$lib/gameLogic/animations/AnimationEngine.js';
 	import type { AttackDirection } from '$lib/gameLogic/animations/AnimationEngine.js';
+	import { HeartIcon, SwordIcon } from './icons/index.js';
+	import grassyBg from '$lib/assets/grassy.png';
+	import snowyBg from '$lib/assets/snowy.png';
+	import castleBg from '$lib/assets/castle.png';
+	import spaceBg from '$lib/assets/space.png';
 
 	type CharacterWithType = {
 		id: number;
 		type: 'hero' | 'enemy';
 		characterTypeId: number;
 		level?: number;
+		hatId?: number | null;
 		stats: Stats;
 		characterType: {
 			id: number;
 			name: string;
 			imageUrl: string | null;
-			levelTwoAbilityId: string | null;
-			levelThreeAbilityId: string | null;
 			baseStats: Stats;
 		};
 	};
@@ -29,12 +31,52 @@
 		heroes: CharacterWithType[];
 		boss?: CharacterWithType;
 		gameEngine?: GameEngine;
+		bossLevel?: number;
 	}
 
-	let { gameName, heroes, boss, gameEngine }: Props = $props();
+	let { gameName, heroes, boss, gameEngine, bossLevel = 1 }: Props = $props();
 
-	// Create empty ability arrays for now (characters start with only basic_attack)
-	const emptyAbilities: Ability[] = [];
+	const animationEngine = AnimationEngine.getInstance();
+	const bossAnimation = $derived(boss ? animationEngine.getAnimation(boss.id.toString()) : null);
+
+	// Track animation progress for boss attack
+	let bossAnimationProgress = $state(0);
+	let bossAnimationFrameId: number | null = null;
+
+	const isBossAttacking = $derived(
+		gameEngine?.currentAttack?.attackerId === boss?.id.toString()
+	);
+
+	// Update animation progress when boss is attacking
+	$effect(() => {
+		if (isBossAttacking) {
+			bossAnimationProgress = 0;
+			const startTime = performance.now();
+			const duration = 600; // Match animation duration
+
+			const updateProgress = (currentTime: number) => {
+				const elapsed = currentTime - startTime;
+				bossAnimationProgress = Math.min(100, (elapsed / duration) * 100);
+
+				if (bossAnimationProgress < 100) {
+					bossAnimationFrameId = requestAnimationFrame(updateProgress);
+				} else {
+					bossAnimationProgress = 0;
+					bossAnimationFrameId = null;
+				}
+			};
+
+			bossAnimationFrameId = requestAnimationFrame(updateProgress);
+
+			return () => {
+				if (bossAnimationFrameId !== null) {
+					cancelAnimationFrame(bossAnimationFrameId);
+				}
+			};
+		} else {
+			bossAnimationProgress = 0;
+		}
+	});
 
 	// Get reactive stats from game engine if available
 	function getHeroStats(heroId: number): Stats {
@@ -55,12 +97,26 @@
 		}
 		return boss?.stats;
 	}
+
+	// Get background image based on boss level
+	function getBackgroundImage(): string {
+		if (bossLevel <= 2) {
+			return grassyBg;
+		} else if (bossLevel <= 5) {
+			return snowyBg;
+		} else if (bossLevel <= 8) {
+			return castleBg;
+		} else {
+			return spaceBg;
+		}
+	}
 </script>
 
 <AnimationStyles />
 
 <div
-	class="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-purple-900 via-purple-800 to-indigo-900 p-8"
+	class="flex min-h-screen flex-col items-center justify-center p-8"
+	style="background-image: url('{getBackgroundImage()}'); background-size: cover; background-position: center; background-repeat: no-repeat;"
 >
 	<!-- Game Name Header -->
 	<div class="mb-8 text-center">
@@ -76,12 +132,12 @@
 					<Character
 						stats={getHeroStats(hero.id)}
 						imageUrl={hero.characterType.imageUrl || '/characters/cat.png'}
-						abilities={emptyAbilities}
 						characterId={hero.id.toString()}
 						isAttacking={gameEngine?.currentAttack?.attackerId === hero.id.toString()}
 						isBeingAttacked={gameEngine?.currentAttack?.targetId === hero.id.toString()}
 						attackDirection="down"
 						level={hero.level || 1}
+						hatId={hero.hatId}
 					/>
 				</div>
 			{/each}
@@ -108,33 +164,54 @@
 			></div>
 		</div>
 
-		<!-- Enemy Section (Boss as normal character) -->
+		<!-- Enemy Section (Boss with devil emoji) -->
 		<div class="flex items-center justify-center">
 			{#if boss}
 				{@const bossStats = getBossStats()}
 				{#if bossStats}
-					<div class="transform transition-transform hover:scale-105">
-						<Character
-							stats={bossStats}
-							imageUrl={boss.characterType.imageUrl || '/characters/cat.png'}
-							abilities={emptyAbilities}
-							characterId={boss.id.toString()}
-							isAttacking={gameEngine?.currentAttack?.attackerId === boss.id.toString()}
-							isBeingAttacked={gameEngine?.currentAttack?.targetId === boss.id.toString()}
-							attackDirection="up"
-							level={boss.level || 1}
-						/>
+					<div
+						class="relative inline-block"
+						class:attacking={isBossAttacking}
+						style="--attack-transform: {bossAnimation?.getTransform('up') || 'translate(0, -300px) rotate(-20deg) scale(1.3)'}; transform-origin: center;"
+					>
+						<div
+							class="relative flex h-40 w-40 items-center justify-center rounded-lg bg-red-600 shadow-lg transition-transform hover:scale-105"
+						>
+							<!-- Level Indicator (Circle) - Top Left -->
+							<div
+								class="absolute -top-2 -left-2 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 border-2 border-white shadow-lg"
+							>
+								<span class="text-sm font-bold text-white">{bossLevel}</span>
+							</div>
+
+							<!-- Devil Emoji -->
+							<div class="text-6xl">😈</div>
+
+							<!-- Health and Attack Overlays (Bottom) -->
+							<div class="absolute -bottom-2 left-1/2 flex -translate-x-1/2 gap-2">
+								<!-- Health Overlay (Heart) -->
+								<div
+									class="bg-opacity-70 flex items-center gap-1 rounded-full bg-black px-2 py-1"
+								>
+									<HeartIcon />
+									<span class="text-xs font-semibold text-white"
+										>{bossStats.health}/{bossStats.maxHealth}</span
+									>
+								</div>
+
+								<!-- Attack Overlay (Sword) -->
+								<div
+									class="bg-opacity-70 flex items-center gap-1 rounded-full bg-black px-2 py-1"
+								>
+									<SwordIcon />
+									<span class="text-xs font-semibold text-white">{bossStats.attack}</span>
+								</div>
+							</div>
+						</div>
 					</div>
 				{/if}
 			{/if}
 		</div>
 	</div>
 
-	<!-- Ability Display -->
-	{#if gameEngine?.currentAbilityDisplay}
-		<AbilityDisplay
-			abilityName={gameEngine.currentAbilityDisplay.name}
-			characterName={gameEngine.currentAbilityDisplay.characterName}
-		/>
-	{/if}
 </div>

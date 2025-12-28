@@ -1,7 +1,6 @@
 import type { Stats, AbilityContext, ContextType } from '../types.js';
 import { ContextType as CT } from '../types.js';
 import { Modifier } from '../abilities/Modifier.js';
-import { Ability } from '../abilities/Ability.js';
 
 export class Character {
 	public id: string;
@@ -17,16 +16,13 @@ export class Character {
 	// Modifiers list as Svelte state rune
 	public modifiers = $state<Modifier[]>([]);
 
-	public abilities: Ability[] = [];
-
-	constructor(id: string, name: string, baseStats: Stats, abilities: Ability[] = []) {
+	constructor(id: string, name: string, baseStats: Stats) {
 		this.id = id;
 		this.name = name;
 		// Update the state rune properties directly
 		this.stats.health = baseStats.health;
 		this.stats.maxHealth = baseStats.maxHealth;
 		this.stats.attack = baseStats.attack;
-		this.abilities = abilities;
 	}
 
 	// Add a modifier (or add stacks if it's a stackable modifier with the same ID)
@@ -100,6 +96,15 @@ export class Character {
 		// (modifiers may have modified the context or stats directly)
 		const finalDamage = damageContext.type === CT.DAMAGE ? damageContext.damage : amount;
 		this.stats.health = Math.max(0, this.stats.health - finalDamage);
+		
+		// Process post-damage healing modifiers (like rock hat that heals after taking damage)
+		// Only apply modifiers that specifically heal after damage (identified by their ID)
+		for (const modifier of this.modifiers) {
+			if (modifier.id === 'hat_rock' && modifier.modifierType === 'on_trigger' && modifier.trigger.type === CT.DAMAGE) {
+				// Apply the modifier effect after damage is taken (for healing effects)
+				modifier.apply(damageContext, this);
+			}
+		}
 	}
 
 	// Heal
@@ -118,22 +123,6 @@ export class Character {
 		this.stats.health = Math.min(this.stats.maxHealth, this.stats.health + finalHeal);
 	}
 
-	// Use an ability - returns modifiers
-	useAbility(abilityId: string, context: AbilityContext): Modifier | Modifier[] {
-		const ability = this.abilities.find((a) => a.id === abilityId);
-		if (!ability) {
-			throw new Error(`Ability ${abilityId} not found`);
-		}
-
-		return ability.use(context);
-	}
-
-	// Tick cooldowns (called at end of turn)
-	tickCooldowns(): void {
-		for (const ability of this.abilities) {
-			ability.tickCooldown();
-		}
-	}
 
 	// Check if character is alive
 	isAlive(): boolean {

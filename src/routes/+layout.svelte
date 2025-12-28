@@ -13,6 +13,11 @@
 		} catch (error) {
 			console.error('Failed to seed characters:', error);
 		}
+		try {
+			await fetch('/api/seed-upgrades', { method: 'POST' });
+		} catch (error) {
+			console.error('Failed to seed upgrades:', error);
+		}
 	});
 </script>
 

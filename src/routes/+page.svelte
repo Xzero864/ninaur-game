@@ -61,7 +61,8 @@
 
 			const newGame = await response.json();
 			closeNewGameModal();
-			goto(`/game/${newGame.id}`);
+			// Navigate directly to the game screen
+			await goto(`/game/${newGame.id}`);
 		} catch (error) {
 			console.error('Error creating game:', error);
 			alert('Failed to create game. Please try again.');

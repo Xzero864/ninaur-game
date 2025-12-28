@@ -1,8 +1,6 @@
 import type { Character } from './characters/Character.svelte.js';
 import type { AbilityContext, ContextType } from './types.js';
 import { ContextType as CT } from './types.js';
-import { Modifier } from './abilities/Modifier.js';
-import { populateContext } from './populateContext.js';
 
 export type GamePhase = 'round-start' | 'action' | 'round-end';
 
@@ -25,8 +23,6 @@ export class GameEngine {
 	// Attack animation state: { attackerId: string, targetId: string } | null
 	public currentAttack = $state<{ attackerId: string; targetId: string } | null>(null);
 
-	// Track current ability being used (for display)
-	public currentAbilityDisplay = $state<{ name: string; characterName: string } | null>(null);
 
 	private constructor() {
 		// Initialize with empty state
@@ -102,28 +98,9 @@ export class GameEngine {
 			return;
 		}
 
-		// Find the ability with the highest cooldown that's ready
-		const availableAbilities = hero.abilities.filter((a) => a.isReady());
-		if (availableAbilities.length === 0) {
-			// No abilities ready, skip this hero
-			this.currentHeroIndex++;
-			this.processNextAction();
-			return;
-		}
-
-		// Sort by cooldown (highest first) and pick the first one
-		const abilityToUse = availableAbilities.sort((a, b) => {
-			const aCooldown = a.cooldown ?? 0;
-			const bCooldown = b.cooldown ?? 0;
-			return bCooldown - aCooldown;
-		})[0];
-
-		// Create initial context for the ability using populateContext
-		// Heroes attack the enemy (boss)
-		const initialContext = populateContext(abilityToUse, hero, this.enemy, this.heroes, this.enemy);
-
-		// Trigger attack animation if this is an attack ability
-		if (initialContext.type === CT.ATTACK && this.enemy) {
+		// Heroes attack the enemy
+		if (this.enemy && this.enemy.isAlive()) {
+			// Trigger attack animation
 			this.currentAttack = {
 				attackerId: hero.id,
 				targetId: this.enemy.id
@@ -132,27 +109,19 @@ export class GameEngine {
 			setTimeout(() => {
 				this.currentAttack = null;
 			}, 600);
-		}
 
-		// Track ability usage for display (only if it has a cooldown)
-		if (abilityToUse.cooldown && abilityToUse.cooldown > 0) {
-			this.currentAbilityDisplay = {
-				name: abilityToUse.name,
-				characterName: hero.name
+			// Create initial attack context with base damage
+			const attackContext: AbilityContext = {
+				type: CT.ATTACK,
+				target: this.enemy.id,
+				damage: hero.getEffectiveStats().attack
 			};
-			// Clear after animation duration
-			setTimeout(() => {
-				this.currentAbilityDisplay = null;
-			}, 2000);
-		}
 
-		// Use the ability - it returns one or more modifiers
-		const modifiers = hero.useAbility(abilityToUse.id, initialContext);
-		const modifierArray = Array.isArray(modifiers) ? modifiers : [modifiers];
+			// Process ATTACK modifiers on the attacker (can modify attack context damage)
+			hero.processModifiers(attackContext);
 
-		// Apply each modifier to the appropriate target
-		for (const modifier of modifierArray) {
-			this.applyModifier(modifier, initialContext, hero);
+			// Apply damage to target (takeDamage will process DAMAGE modifiers)
+			this.enemy.takeDamage(attackContext.damage, hero.id);
 		}
 
 		// Move to next hero
@@ -165,35 +134,11 @@ export class GameEngine {
 			return;
 		}
 
-		// Find the ability with the highest cooldown that's ready
-		const availableAbilities = this.enemy.abilities.filter((a) => a.isReady());
-		if (availableAbilities.length === 0) {
-			// No abilities ready, boss skips
-			return;
-		}
-
-		// Sort by cooldown (highest first) and pick the first one
-		const abilityToUse = availableAbilities.sort((a, b) => {
-			const aCooldown = a.cooldown ?? 0;
-			const bCooldown = b.cooldown ?? 0;
-			return bCooldown - aCooldown;
-		})[0];
-
 		// Find first alive hero as target
 		const targetHero = this.heroes.find((h) => h.isAlive());
 
-		// Create initial context for the ability using populateContext
-		// Boss attacks heroes
-		const initialContext = populateContext(
-			abilityToUse,
-			this.enemy,
-			targetHero || null,
-			this.heroes,
-			this.enemy
-		);
-
-		// Trigger attack animation if this is an attack ability
-		if (initialContext.type === CT.ATTACK && targetHero) {
+		if (targetHero) {
+			// Trigger attack animation
 			this.currentAttack = {
 				attackerId: this.enemy.id,
 				targetId: targetHero.id
@@ -202,95 +147,22 @@ export class GameEngine {
 			setTimeout(() => {
 				this.currentAttack = null;
 			}, 600);
-		}
 
-		// Track ability usage for display (only if it has a cooldown)
-		if (abilityToUse.cooldown && abilityToUse.cooldown > 0) {
-			this.currentAbilityDisplay = {
-				name: abilityToUse.name,
-				characterName: this.enemy.name
+			// Create initial attack context with base damage
+			const attackContext: AbilityContext = {
+				type: CT.ATTACK,
+				target: targetHero.id,
+				damage: this.enemy.getEffectiveStats().attack
 			};
-			// Clear after animation duration
-			setTimeout(() => {
-				this.currentAbilityDisplay = null;
-			}, 2000);
-		}
 
-		// Use the ability - it returns one or more modifiers
-		const modifiers = this.enemy.useAbility(abilityToUse.id, initialContext);
-		const modifierArray = Array.isArray(modifiers) ? modifiers : [modifiers];
+			// Process ATTACK modifiers on the boss (can modify attack context damage)
+			this.enemy.processModifiers(attackContext);
 
-		// Apply each modifier to the appropriate target
-		for (const modifier of modifierArray) {
-			this.applyModifier(modifier, initialContext, this.enemy);
+			// Apply damage to target (takeDamage will process DAMAGE modifiers)
+			targetHero.takeDamage(attackContext.damage, this.enemy.id);
 		}
 	}
 
-	// Apply a modifier to the appropriate target character
-	private applyModifier(
-		modifier: Modifier,
-		context: AbilityContext,
-		sourceCharacter: Character
-	): void {
-		// Determine target based on context type and source
-		const isBossAction = sourceCharacter === this.enemy;
-
-		if (context.type === CT.HEAL || context.type === CT.BUFF) {
-			// Heals and buffs: if from hero, apply to hero; if from boss, apply to boss
-			if (isBossAction) {
-				// Boss healing/buffing itself
-				if (this.enemy) {
-					const modifiedModifier = this.enemy.processModifiersOnModifier(modifier, context);
-					if (modifiedModifier.modifierType === 'one_time') {
-						modifiedModifier.apply(context, this.enemy);
-					} else {
-						this.enemy.addModifier(modifiedModifier);
-					}
-				}
-			} else {
-				// Hero healing/buffing heroes
-				const targetHero =
-					this.heroes.find((h) => h.id === context.target) ?? this.heroes.find((h) => h.isAlive());
-				if (targetHero) {
-					const modifiedModifier = targetHero.processModifiersOnModifier(modifier, context);
-					if (modifiedModifier.modifierType === 'one_time') {
-						modifiedModifier.apply(context, targetHero);
-					} else {
-						targetHero.addModifier(modifiedModifier);
-					}
-				}
-			}
-		} else if (
-			context.type === CT.DAMAGE ||
-			context.type === CT.DEBUFF ||
-			context.type === CT.ATTACK
-		) {
-			// Damage/debuffs/attacks: if from hero, apply to enemy; if from boss, apply to heroes
-			if (isBossAction) {
-				// Boss attacking heroes - find target hero
-				const targetHero =
-					this.heroes.find((h) => h.id === context.target) ?? this.heroes.find((h) => h.isAlive());
-				if (targetHero) {
-					const modifiedModifier = targetHero.processModifiersOnModifier(modifier, context);
-					if (modifiedModifier.modifierType === 'one_time') {
-						modifiedModifier.apply(context, targetHero);
-					} else {
-						targetHero.addModifier(modifiedModifier);
-					}
-				}
-			} else {
-				// Hero attacking enemy
-				if (this.enemy) {
-					const modifiedModifier = this.enemy.processModifiersOnModifier(modifier, context);
-					if (modifiedModifier.modifierType === 'one_time') {
-						modifiedModifier.apply(context, this.enemy);
-					} else {
-						this.enemy.addModifier(modifiedModifier);
-					}
-				}
-			}
-		}
-	}
 
 	// End the round
 	endRound(): void {
@@ -320,9 +192,6 @@ export class GameEngine {
 					}
 				}
 			}
-
-			// Tick cooldowns
-			character.tickCooldowns();
 		}
 
 		// Check win/lose conditions
@@ -333,14 +202,6 @@ export class GameEngine {
 		if (this.heroes.every((h) => !h.isAlive())) {
 			// All heroes dead - could trigger lose state
 		}
-	}
-
-	// Get current active hero (for UI)
-	getCurrentHero(): Character | null {
-		if (this.phase !== 'action' || this.currentHeroIndex >= this.heroes.length) {
-			return null;
-		}
-		return this.heroes[this.currentHeroIndex] ?? null;
 	}
 
 	// Check if game is over

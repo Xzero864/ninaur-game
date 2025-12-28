@@ -70,11 +70,13 @@ export const GET: RequestHandler = async ({ params }) => {
 			bossLevel: game.bossLevel,
 			heroes: heroes.map((h) => ({
 				...h,
-				level: h.level || 1
+				level: h.level || 1,
+				hatId: h.hatId || null
 			})),
 			enemies: scaledEnemies.map((e) => ({
 				...e,
-				level: e.level || 1
+				level: e.level || 1,
+				hatId: e.hatId || null
 			}))
 		});
 	} catch (error) {
@@ -145,6 +147,35 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	} catch (error) {
 		console.error('Error updating game:', error);
 		return json({ error: 'Failed to update game' }, { status: 500 });
+	}
+};
+
+export const DELETE: RequestHandler = async ({ params }) => {
+	try {
+		const gameId = parseInt(params.gameId);
+		if (isNaN(gameId)) {
+			return json({ error: 'Invalid game ID' }, { status: 400 });
+		}
+
+		// Fetch the game
+		const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
+
+		if (!game) {
+			return json({ error: 'Game not found' }, { status: 404 });
+		}
+
+		// Delete characters associated with this game
+		if (game.characterIds.length > 0) {
+			await db.delete(characters).where(inArray(characters.id, game.characterIds));
+		}
+
+		// Delete the game
+		await db.delete(games).where(eq(games.id, gameId));
+
+		return json({ message: 'Game deleted successfully' }, { status: 200 });
+	} catch (error) {
+		console.error('Error deleting game:', error);
+		return json({ error: 'Failed to delete game' }, { status: 500 });
 	}
 };
 

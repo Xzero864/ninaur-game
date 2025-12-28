@@ -40,15 +40,23 @@ export class Modifier {
 			return true;
 		}
 
-		if (this.trigger.type === 'on_ability' && context.type === this.trigger.contextType) {
-			return true;
-		}
-
 		if (this.trigger.type === CT.DAMAGE && context.type === CT.DAMAGE) {
 			return true;
 		}
 
 		if (this.trigger.type === CT.HEAL && context.type === CT.HEAL) {
+			return true;
+		}
+
+		if (this.trigger.type === CT.ATTACK && context.type === CT.ATTACK) {
+			return true;
+		}
+
+		if (this.trigger.type === CT.BUFF && context.type === CT.BUFF) {
+			return true;
+		}
+
+		if (this.trigger.type === CT.DEBUFF && context.type === CT.DEBUFF) {
 			return true;
 		}
 

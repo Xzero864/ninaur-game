@@ -8,8 +8,6 @@ import type { Stats } from '$lib/gameLogic/types.js';
 const createCharacterTypeSchema = z.object({
 	name: z.string().min(1),
 	imageUrl: z.string().url().optional(),
-	levelTwoAbilityId: z.string().optional().nullable(),
-	levelThreeAbilityId: z.string().optional().nullable(),
 	baseStats: z.object({
 		health: z.number().min(1),
 		maxHealth: z.number().min(1),
@@ -27,8 +25,6 @@ export const POST: RequestHandler = async ({ request }) => {
 			.values({
 				name: validatedData.name,
 				imageUrl: validatedData.imageUrl || null,
-				levelTwoAbilityId: validatedData.levelTwoAbilityId || null,
-				levelThreeAbilityId: validatedData.levelThreeAbilityId || null,
 				baseStats: validatedData.baseStats
 			})
 			.returning();

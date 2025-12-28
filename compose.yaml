@@ -1,21 +1,4 @@
 services:
-  db:
-    image: postgres
-    restart: always
-    ports:
-      - 5432:5432
-    environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: mysecretpassword
-      POSTGRES_DB: local
-    volumes:
-      - pgdata:/var/lib/postgresql
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U root -d local']
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   migrate:
     image: node:20-alpine
     restart: 'no'
@@ -23,11 +6,5 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgresql://root:mysecretpassword@db:5432/local
+      DATABASE_URL: file:./local.db
     command: sh -c "npm install && npm run db:push"
-    depends_on:
-      db:
-        condition: service_healthy
-
-volumes:
-  pgdata:

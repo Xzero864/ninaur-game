@@ -7,8 +7,6 @@ import { eq } from 'drizzle-orm';
 type CharacterDefinition = {
 	name: string;
 	imageUrl: string | null;
-	levelTwoAbilityId: string | null;
-	levelThreeAbilityId: string | null;
 	baseStats: Stats;
 };
 
@@ -16,8 +14,6 @@ const characters: CharacterDefinition[] = [
 	{
 		name: 'Spoob',
 		imageUrl: '/characters/spoob.png',
-		levelTwoAbilityId: 'heal',
-		levelThreeAbilityId: 'shield',
 		baseStats: {
 			health: 20,
 			maxHealth: 20,
@@ -27,8 +23,6 @@ const characters: CharacterDefinition[] = [
 	{
 		name: 'Stoob',
 		imageUrl: '/characters/stoob.png',
-		levelTwoAbilityId: 'power_attack',
-		levelThreeAbilityId: 'poison',
 		baseStats: {
 			health: 22,
 			maxHealth: 22,
@@ -38,8 +32,6 @@ const characters: CharacterDefinition[] = [
 	{
 		name: 'Small Bloob',
 		imageUrl: '/characters/small-bloob.png',
-		levelTwoAbilityId: 'buff_attack',
-		levelThreeAbilityId: 'shield',
 		baseStats: {
 			health: 25,
 			maxHealth: 25,
@@ -49,8 +41,6 @@ const characters: CharacterDefinition[] = [
 	{
 		name: 'Cat',
 		imageUrl: '/characters/cat.png',
-		levelTwoAbilityId: 'debuff_attack',
-		levelThreeAbilityId: 'poison',
 		baseStats: {
 			health: 27,
 			maxHealth: 27,
@@ -60,8 +50,6 @@ const characters: CharacterDefinition[] = [
 	{
 		name: 'Deformed Duck Lamp',
 		imageUrl: '/characters/deformed-duck-lamp.png',
-		levelTwoAbilityId: 'light_up',
-		levelThreeAbilityId: null,
 		baseStats: {
 			health: 30,
 			maxHealth: 30,
@@ -71,8 +59,6 @@ const characters: CharacterDefinition[] = [
 	{
 		name: 'Boss',
 		imageUrl: null,
-		levelTwoAbilityId: null,
-		levelThreeAbilityId: null,
 		baseStats: {
 			health: 30,
 			maxHealth: 30,

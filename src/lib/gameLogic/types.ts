@@ -18,7 +18,7 @@ export enum ContextType {
 	TURN_END = 'turn_end'
 }
 
-// Context types for abilities - discriminated union
+// Context types for modifiers and combat actions - discriminated union
 export const AbilityContextSchema = z.discriminatedUnion('type', [
 	z.object({
 		type: z.literal(ContextType.ATTACK),
@@ -68,7 +68,9 @@ export type ModifierTrigger =
 	| { type: ContextType.TURN_END }
 	| { type: ContextType.DAMAGE }
 	| { type: ContextType.HEAL }
-	| { type: 'on_ability'; contextType: ContextType }
+	| { type: ContextType.ATTACK }
+	| { type: ContextType.BUFF }
+	| { type: ContextType.DEBUFF }
 	| { type: 'on_modifier_added' }
 	| { type: 'permanent' };
 

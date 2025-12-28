@@ -1,30 +1,43 @@
 <script lang="ts">
 	import type { Stats } from '$lib/gameLogic/types.js';
-	import type { Ability } from '$lib/gameLogic/abilities/Ability.js';
 	import { AnimationEngine } from '$lib/gameLogic/animations/AnimationEngine.js';
 	import type { AttackDirection } from '$lib/gameLogic/animations/AnimationEngine.js';
+	import { HeartIcon, SwordIcon } from './icons/index.js';
 
 	interface Props {
 		stats: Stats;
 		imageUrl: string;
-		abilities: Ability[];
 		characterId?: string;
 		isAttacking?: boolean;
 		isBeingAttacked?: boolean;
 		attackDirection?: AttackDirection;
 		level?: number;
+		hatId?: number | null;
 	}
 
 	let {
 		stats,
 		imageUrl,
-		abilities,
 		characterId,
 		isAttacking = false,
 		isBeingAttacked = false,
 		attackDirection = 'down',
-		level = 1
+		level = 1,
+		hatId = null
 	}: Props = $props();
+
+	// Hat emoji mapping
+	const hatEmojis: Record<number, string> = {
+		1: '🧙', // Wizard Hat
+		2: '👑', // Crown
+		3: '🤠', // Cowboy Hat
+		4: '🎩', // Beret
+		5: '⛑️', // Helmet
+		6: '🎉', // Party Hat
+		7: '🎩', // Top Hat
+		8: '🧢', // Baseball Cap
+		9: '🪨' // Rock Hat
+	};
 
 	const animationEngine = AnimationEngine.getInstance();
 	const animation = $derived(animationEngine.getAnimation(characterId));
@@ -77,59 +90,49 @@
 </script>
 
 <div
-	class="relative inline-block"
+	class="relative inline-block rounded-lg border-2 border-gray-600"
 	class:attacking={isAttacking}
 	style="--attack-transform: {animation.getTransform(attackDirection)}; transform-origin: center;"
 >
 	<!-- Character Image -->
-	<img src={currentImage()} alt="Character" class="h-32 w-32 rounded-lg object-cover" />
-
-	<!-- Health Overlay (Heart) -->
-	<div
-		class="bg-opacity-70 absolute -top-2 -left-2 flex items-center gap-1 rounded-full bg-black px-2 py-1"
-	>
-		<svg
-			class="h-4 w-4 fill-red-500 text-red-500"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-			/>
-		</svg>
-		<span class="text-xs font-semibold text-white">{stats.health}/{stats.maxHealth}</span>
+	<div class="relative">
+		<img src={currentImage()} alt="Character" class="h-32 w-32 rounded-lg object-cover" />
+		<!-- Hat Display - Top Center -->
+		{#if hatId && hatEmojis[hatId]}
+			<div
+				class="absolute -top-6 left-1/2 -translate-x-1/2 text-3xl drop-shadow-lg"
+				style="z-index: 10;"
+			>
+				{hatEmojis[hatId]}
+			</div>
+		{/if}
 	</div>
 
-	<!-- Attack Overlay (Sword) -->
-	<div
-		class="bg-opacity-70 absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-black px-2 py-1"
-	>
-		<svg class="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-			<!-- Sword blade (pointed upward) -->
-			<path d="M12 2L13 10L11 10L12 2Z" />
-			<!-- Sword crossguard -->
-			<path d="M8 10L16 10L15.5 11L8.5 11L8 10Z" />
-			<!-- Sword handle -->
-			<path d="M11.5 11L11.5 19L12.5 19L12.5 11L11.5 11Z" />
-			<!-- Sword pommel -->
-			<path d="M10.5 19L13.5 19L13 20L11 20L10.5 19Z" />
-		</svg>
-		<span class="text-xs font-semibold text-white">{stats.attack}</span>
-	</div>
-
-	<!-- Level Indicator (Stacked Arrows) -->
+	<!-- Level Indicator (Circle) - Top Left -->
 	{#if level > 0}
-		<div class="absolute -bottom-2 left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5">
-			{#each Array(level) as _, i}
-				{@const arrowColor = level === 1 ? 'text-[#cd7f32]' : 'text-[#ffd700]'}
-				<div class="{arrowColor} text-lg leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-					▲
-				</div>
-			{/each}
+		<div
+			class="absolute -top-2 -left-2 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 border-2 border-white shadow-lg"
+		>
+			<span class="text-sm font-bold text-white">{level}</span>
 		</div>
 	{/if}
+
+	<!-- Health and Attack Overlays (Bottom) -->
+	<div class="absolute -bottom-2 left-1/2 flex -translate-x-1/2 gap-2">
+		<!-- Health Overlay (Heart) -->
+		<div
+			class="bg-opacity-70 flex items-center gap-1 rounded-full bg-black px-2 py-1"
+		>
+			<HeartIcon />
+			<span class="text-xs font-semibold text-white">{stats.health}/{stats.maxHealth}</span>
+		</div>
+
+		<!-- Attack Overlay (Sword) -->
+		<div
+			class="bg-opacity-70 flex items-center gap-1 rounded-full bg-black px-2 py-1"
+		>
+			<SwordIcon />
+			<span class="text-xs font-semibold text-white">{stats.attack}</span>
+		</div>
+	</div>
 </div>

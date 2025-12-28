@@ -12,11 +12,11 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check .",
-		"db:start": "docker compose up",
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:studio": "drizzle-kit studio"
+		"db:studio": "drizzle-kit studio",
+		"db:setup": "npm run db:push"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",
@@ -36,8 +36,8 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
+		"@libsql/client": "^0.15.15",
 		"@tanstack/svelte-query": "^6.0.10",
-		"postgres": "^3.4.7",
 		"zod": "^4.2.1"
 	}
 }

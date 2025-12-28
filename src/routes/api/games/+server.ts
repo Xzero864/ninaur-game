@@ -62,23 +62,43 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: 'No character types available' }, { status: 400 });
 		}
 
-		// Pick a random character type for the hero
+		// Pick two random character types for the heroes
 		const heroCharacterTypes = allCharacterTypes.filter((ct) => ct.name !== 'Boss');
 		if (heroCharacterTypes.length === 0) {
 			return json({ error: 'No hero character types available' }, { status: 400 });
 		}
-		const randomCharacterType =
-			heroCharacterTypes[Math.floor(Math.random() * heroCharacterTypes.length)];
+		if (heroCharacterTypes.length < 2) {
+			return json({ error: 'Not enough hero character types available (need at least 2)' }, { status: 400 });
+		}
 
-		// Create a hero character with the random type, only basic_attack, and base stats
-		const [newCharacter] = await db
+		// Pick two different random character types
+		const shuffled = [...heroCharacterTypes].sort(() => Math.random() - 0.5);
+		const firstCharacterType = shuffled[0];
+		const secondCharacterType = shuffled[1];
+
+		// Create first hero character
+		const [firstCharacter] = await db
 			.insert(characters)
 			.values({
 				type: 'hero',
-				characterTypeId: randomCharacterType.id,
+				characterTypeId: firstCharacterType.id,
 				stats: {
-					...randomCharacterType.baseStats,
-					health: randomCharacterType.baseStats.maxHealth
+					...firstCharacterType.baseStats,
+					health: firstCharacterType.baseStats.maxHealth
+				},
+				level: 1
+			})
+			.returning();
+
+		// Create second hero character
+		const [secondCharacter] = await db
+			.insert(characters)
+			.values({
+				type: 'hero',
+				characterTypeId: secondCharacterType.id,
+				stats: {
+					...secondCharacterType.baseStats,
+					health: secondCharacterType.baseStats.maxHealth
 				},
 				level: 1
 			})
@@ -93,8 +113,6 @@ export const POST: RequestHandler = async ({ request }) => {
 				.values({
 					name: 'Boss',
 					imageUrl: null,
-					levelTwoAbilityId: null,
-					levelThreeAbilityId: null,
 					baseStats: {
 						health: 500,
 						maxHealth: 500,
@@ -119,12 +137,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			})
 			.returning();
 
-		// Create the game with both hero and boss
+		// Create the game with both heroes and boss
 		const [newGame] = await db
 			.insert(games)
 			.values({
 				name: validatedData.name,
-				characterIds: [newCharacter.id, bossCharacter.id],
+				characterIds: [firstCharacter.id, secondCharacter.id, bossCharacter.id],
 				bossLevel: initialBossLevel
 			})
 			.returning();
