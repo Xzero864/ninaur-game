@@ -79,11 +79,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
 				newStats.maxHealth = (newStats.maxHealth || 0) + (effect.amount as number);
 				newStats.health = newStats.maxHealth;
 			} else if (stat === 'balanced') {
-				newStats.maxHealth = (newStats.maxHealth || 0) + (effect.health as number);
+			newStats.maxHealth = (newStats.maxHealth || 0) + (effect.health as number);
 				newStats.health = newStats.maxHealth;
-				newStats.attack = (newStats.attack || 0) + (effect.attack as number);
-			}
-			
+			newStats.attack = (newStats.attack || 0) + (effect.attack as number);
+		}
+
 			// Preserve current health if it's less than new max (don't heal when changing hats)
 			if (character.stats.health < character.stats.maxHealth) {
 				newStats.health = Math.min(character.stats.health, newStats.maxHealth);

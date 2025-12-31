@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
 	import { getHatDefinition } from '$lib/gameLogic/hatDefinitions.js';
+	import { getHatFilepath } from '$lib/gameLogic/hatUtils.js';
+	import shopBg from '$lib/assets/shop-bg.png';
 
 	type CharacterWithType = {
 		id: number;
@@ -43,17 +45,17 @@
 		| {
 				type: 'hat';
 				hat: {
-					id: string;
-					name: string;
-					description: string;
+		id: string;
+		name: string;
+		description: string;
 					hatId: number;
-					effect: {
-						type: string;
-						[key: string]: unknown;
-					};
+		effect: {
+			type: string;
+			[key: string]: unknown;
+		};
 				};
 				cost: number;
-		  };
+	};
 
 	interface Props {
 		heroes: CharacterWithType[];
@@ -80,18 +82,6 @@
 		}
 	});
 
-	// Hat emoji mapping
-	const hatEmojis: Record<number, string> = {
-		1: '🧙', // Wizard Hat
-		2: '👑', // Crown
-		3: '🤠', // Cowboy Hat
-		4: '🎩', // Beret
-		5: '⛑️', // Helmet
-		6: '🎉', // Party Hat
-		7: '🎩', // Top Hat
-		8: '🧢', // Baseball Cap
-		9: '🪨' // Rock Hat
-	};
 
 	// Fetch 5 random shop items (hat/character combinations)
 	const shopItemsQuery = createQuery(() => ({
@@ -232,7 +222,22 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-purple-900 via-purple-800 to-indigo-900 p-8">
+<style>
+	.pixel-art-bg {
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
+		-ms-interpolation-mode: nearest-neighbor;
+	}
+</style>
+
+<div
+	class="min-h-screen p-8 pixel-art-bg"
+	style="background-image: url('{shopBg}');"
+>
 	<div class="mx-auto max-w-6xl">
 		<!-- Header with Gold -->
 		<div class="mb-8 flex items-center justify-between">
@@ -262,18 +267,23 @@
 					>
 						<!-- Character Image with Hat -->
 						<div class="relative">
-							<img
-								src={hero.characterType.imageUrl || '/characters/cat.png'}
-								alt={hero.characterType.name}
-								class="h-24 w-24 rounded-lg object-cover"
-							/>
+						<img
+							src={hero.characterType.imageUrl || '/characters/cat.png'}
+							alt={hero.characterType.name}
+							class="h-24 w-24 rounded-lg object-cover"
+						/>
 							<!-- Hat Display - Top Center -->
-							{#if hero.hatId && hatEmojis[hero.hatId]}
+							{#if hero.hatId && getHatFilepath(hero.hatId)}
 								<div
-									class="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl drop-shadow-lg"
+									class="absolute -top-6 left-1/2 -translate-x-1/2 drop-shadow-lg"
 									style="z-index: 10;"
 								>
-									{hatEmojis[hero.hatId]}
+									<img
+										src={getHatFilepath(hero.hatId)!}
+										alt="Hat"
+										class="h-6 w-6 pixel-art-character"
+										style="image-rendering: pixelated; image-rendering: crisp-edges;"
+									/>
 								</div>
 							{/if}
 						</div>
@@ -342,11 +352,11 @@
 						{:else}
 							{@const hatDef = item.hat.hatId ? getHatDefinition(item.hat.hatId) : null}
 							<!-- Hat Item -->
-							<button
+						<button
 								onclick={() => selectHatItem(item)}
 								disabled={!canAfford || purchasing}
 								class="relative flex flex-col gap-2 rounded-lg bg-gray-800/50 p-4 text-left transition-all hover:bg-gray-700/50 disabled:cursor-not-allowed disabled:opacity-50"
-							>
+						>
 								<!-- Gold Cost - Top Right -->
 								<div class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-yellow-600 px-2 py-1">
 									<svg class="h-4 w-4 text-yellow-200" fill="currentColor" viewBox="0 0 24 24">
@@ -360,8 +370,13 @@
 								<!-- Hat Display -->
 								<div class="flex justify-center">
 									<div class="flex h-24 w-24 items-center justify-center rounded-lg bg-purple-600/30">
-										{#if item.hat.hatId && hatEmojis[item.hat.hatId]}
-											<span class="text-6xl drop-shadow-lg">{hatEmojis[item.hat.hatId]}</span>
+										{#if item.hat.hatId && getHatFilepath(item.hat.hatId)}
+											<img
+												src={getHatFilepath(item.hat.hatId)!}
+												alt={item.hat.name}
+												class="h-20 w-20 pixel-art-character drop-shadow-lg"
+												style="image-rendering: pixelated; image-rendering: crisp-edges;"
+											/>
 										{:else}
 											<span class="text-4xl">🎩</span>
 										{/if}
@@ -373,9 +388,9 @@
 									<div class="font-semibold text-white">{item.hat.name}</div>
 									<div class="mt-1 text-xs font-semibold text-purple-300">
 										{hatDef?.description || item.hat.description}
-									</div>
 								</div>
-							</button>
+							</div>
+						</button>
 						{/if}
 					{/each}
 				</div>
@@ -414,9 +429,15 @@
 								<div class="text-center">
 									<div class="font-semibold text-white">{hero.characterType.name}</div>
 									<div class="text-xs text-gray-300">Level {hero.level || 1}</div>
-									{#if hero.hatId}
-										<div class="text-xs text-yellow-400">
-											Current: {hatEmojis[hero.hatId] || '🎩'}
+									{#if hero.hatId && getHatFilepath(hero.hatId)}
+										<div class="flex items-center justify-center gap-1 text-xs text-yellow-400">
+											<span>Current:</span>
+											<img
+												src={getHatFilepath(hero.hatId)!}
+												alt="Current hat"
+												class="h-4 w-4 pixel-art-character"
+												style="image-rendering: pixelated; image-rendering: crisp-edges;"
+											/>
 										</div>
 									{/if}
 								</div>

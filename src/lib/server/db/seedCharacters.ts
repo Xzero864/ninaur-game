@@ -57,6 +57,78 @@ const characters: CharacterDefinition[] = [
 		}
 	},
 	{
+		name: 'Medium Bloob',
+		imageUrl: '/characters/medium-bloob.png',
+		baseStats: {
+			health: 23,
+			maxHealth: 23,
+			attack: 3
+		}
+	},
+	{
+		name: 'Pocky',
+		imageUrl: '/characters/pocky.png',
+		baseStats: {
+			health: 24,
+			maxHealth: 24,
+			attack: 2
+		}
+	},
+	{
+		name: 'Socky',
+		imageUrl: '/characters/socky.png',
+		baseStats: {
+			health: 26,
+			maxHealth: 26,
+			attack: 2
+		}
+	},
+	{
+		name: 'Duck',
+		imageUrl: '/characters/duck.png',
+		baseStats: {
+			health: 28,
+			maxHealth: 28,
+			attack: 2
+		}
+	},
+	{
+		name: 'Pink Bloob',
+		imageUrl: '/characters/pink-bloob.png',
+		baseStats: {
+			health: 21,
+			maxHealth: 21,
+			attack: 3
+		}
+	},
+	{
+		name: 'Bloob',
+		imageUrl: '/characters/bloob.png',
+		baseStats: {
+			health: 24,
+			maxHealth: 24,
+			attack: 3
+		}
+	},
+	{
+		name: 'Lochy',
+		imageUrl: '/characters/lochy.png',
+		baseStats: {
+			health: 25,
+			maxHealth: 25,
+			attack: 2
+		}
+	},
+	{
+		name: 'Ugly Spoob',
+		imageUrl: '/characters/ugly-spoob.png',
+		baseStats: {
+			health: 19,
+			maxHealth: 19,
+			attack: 4
+		}
+	},
+	{
 		name: 'Boss',
 		imageUrl: null,
 		baseStats: {

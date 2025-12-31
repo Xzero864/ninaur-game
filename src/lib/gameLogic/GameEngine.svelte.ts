@@ -4,6 +4,12 @@ import { ContextType as CT } from './types.js';
 
 export type GamePhase = 'round-start' | 'action' | 'round-end';
 
+type HatData = {
+	hatId: number;
+	filepath: string;
+	[id: string]: unknown;
+};
+
 export class GameEngine {
 	// Singleton instance
 	private static instance: GameEngine | null = null;
@@ -23,6 +29,9 @@ export class GameEngine {
 	// Attack animation state: { attackerId: string, targetId: string } | null
 	public currentAttack = $state<{ attackerId: string; targetId: string } | null>(null);
 
+	// Hats cache - loaded once from database
+	private hatsCache = $state<Map<number, HatData>>(new Map());
+	private hatsLoaded = $state<boolean>(false);
 
 	private constructor() {
 		// Initialize with empty state
@@ -34,6 +43,46 @@ export class GameEngine {
 			GameEngine.instance = new GameEngine();
 		}
 		return GameEngine.instance;
+	}
+
+	// Load all hats from database (called once on app startup)
+	public async loadHats(): Promise<void> {
+		if (this.hatsLoaded) {
+			return; // Already loaded
+		}
+
+		try {
+			const response = await fetch('/api/hats');
+			if (!response.ok) {
+				throw new Error('Failed to load hats');
+			}
+			const hats = await response.json();
+			
+			// Build cache map: hatId -> { hatId, filepath, ... }
+			for (const hat of hats) {
+				const effect = hat.effect as { hatId?: number; filepath?: string };
+				if (effect.hatId && effect.filepath) {
+					this.hatsCache.set(effect.hatId, {
+						hatId: effect.hatId,
+						filepath: effect.filepath,
+						...hat
+					});
+				}
+			}
+			
+			this.hatsLoaded = true;
+			console.log(`Loaded ${this.hatsCache.size} hats into cache`);
+		} catch (error) {
+			console.error('Error loading hats:', error);
+			// Don't throw - allow game to continue without hats
+		}
+	}
+
+	// Get hat filepath by hatId
+	public getHatFilepath(hatId: number | null | undefined): string | null {
+		if (!hatId) return null;
+		const hat = this.hatsCache.get(hatId);
+		return hat?.filepath || null;
 	}
 
 	// Initialize the game with heroes and enemy
@@ -105,10 +154,10 @@ export class GameEngine {
 				attackerId: hero.id,
 				targetId: this.enemy.id
 			};
-			// Clear animation after a short delay
+			// Clear animation after animation completes
 			setTimeout(() => {
 				this.currentAttack = null;
-			}, 600);
+			}, 1500);
 
 			// Create initial attack context with base damage
 			const attackContext: AbilityContext = {
@@ -143,10 +192,10 @@ export class GameEngine {
 				attackerId: this.enemy.id,
 				targetId: targetHero.id
 			};
-			// Clear animation after a short delay
+			// Clear animation after animation completes
 			setTimeout(() => {
 				this.currentAttack = null;
-			}, 600);
+			}, 1500);
 
 			// Create initial attack context with base damage
 			const attackContext: AbilityContext = {

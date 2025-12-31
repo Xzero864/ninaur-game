@@ -3,6 +3,7 @@
 	import { AnimationEngine } from '$lib/gameLogic/animations/AnimationEngine.js';
 	import type { AttackDirection } from '$lib/gameLogic/animations/AnimationEngine.js';
 	import { HeartIcon, SwordIcon } from './icons/index.js';
+	import { getHatFilepath } from '$lib/gameLogic/hatUtils.js';
 
 	interface Props {
 		stats: Stats;
@@ -26,19 +27,6 @@
 		hatId = null
 	}: Props = $props();
 
-	// Hat emoji mapping
-	const hatEmojis: Record<number, string> = {
-		1: '🧙', // Wizard Hat
-		2: '👑', // Crown
-		3: '🤠', // Cowboy Hat
-		4: '🎩', // Beret
-		5: '⛑️', // Helmet
-		6: '🎉', // Party Hat
-		7: '🎩', // Top Hat
-		8: '🧢', // Baseball Cap
-		9: '🪨' // Rock Hat
-	};
-
 	const animationEngine = AnimationEngine.getInstance();
 	const animation = $derived(animationEngine.getAnimation(characterId));
 
@@ -51,7 +39,7 @@
 		if (isAttacking) {
 			animationProgress = 0;
 			const startTime = performance.now();
-			const duration = 600; // Match animation duration
+			const duration = 1500; // Match animation duration (25% faster)
 
 			const updateProgress = (currentTime: number) => {
 				const elapsed = currentTime - startTime;
@@ -96,14 +84,23 @@
 >
 	<!-- Character Image -->
 	<div class="relative">
-		<img src={currentImage()} alt="Character" class="h-32 w-32 rounded-lg object-cover" />
+		<img
+			src={currentImage()}
+			alt="Character"
+			class="pixel-art-character h-32 w-32 rounded-lg object-cover"
+		/>
 		<!-- Hat Display - Top Center -->
-		{#if hatId && hatEmojis[hatId]}
+		{#if hatId && getHatFilepath(hatId)}
 			<div
-				class="absolute -top-6 left-1/2 -translate-x-1/2 text-3xl drop-shadow-lg"
+				class="absolute -top-6 left-1/2 -translate-x-1/2 drop-shadow-lg"
 				style="z-index: 10;"
 			>
-				{hatEmojis[hatId]}
+				<img
+					src={getHatFilepath(hatId)!}
+					alt="Hat"
+					class="h-8 w-8 pixel-art-character"
+					style="image-rendering: pixelated; image-rendering: crisp-edges;"
+				/>
 			</div>
 		{/if}
 	</div>

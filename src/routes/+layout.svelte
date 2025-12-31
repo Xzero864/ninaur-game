@@ -18,6 +18,15 @@
 		} catch (error) {
 			console.error('Failed to seed upgrades:', error);
 		}
+		
+		// Load hats into GameEngine cache
+		try {
+			const { GameEngine } = await import('$lib/gameLogic/GameEngine.svelte.js');
+			const gameEngine = GameEngine.getInstance();
+			await gameEngine.loadHats();
+		} catch (error) {
+			console.error('Failed to load hats:', error);
+		}
 	});
 </script>
 

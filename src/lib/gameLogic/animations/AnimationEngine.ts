@@ -29,9 +29,9 @@ export interface AttackAnimation {
  */
 const DEFAULT_ATTACK_CONFIG: AttackAnimationConfig = {
 	distance: 300, // Increased so characters actually touch
-	rotation: 20, // Slightly more rotation for impact
+	rotation: 0, // No rotation/tilt
 	scale: 1.3, // More dramatic scale
-	duration: 600,
+	duration: 1500, // 25% faster than 2000ms
 	easing: 'ease-in-out'
 };
 

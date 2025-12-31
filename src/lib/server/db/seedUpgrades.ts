@@ -1,6 +1,5 @@
 import { db } from './index.js';
 import { upgrades } from './schema.js';
-import { eq } from 'drizzle-orm';
 
 type UpgradeDefinition = {
 	id: string;
@@ -14,7 +13,7 @@ type UpgradeDefinition = {
 };
 
 const upgradeDefinitions: UpgradeDefinition[] = [
-	// Hat upgrades
+	// Hat upgrades - all hats from static/hats folder
 	{
 		id: 'hat_wizard',
 		name: 'Wizard Hat',
@@ -23,20 +22,22 @@ const upgradeDefinitions: UpgradeDefinition[] = [
 		effect: {
 			type: 'hat',
 			hatId: 1,
+			filepath: '/hats/wizard-hat.png',
 			stat: 'attack',
 			amount: 3
 		}
 	},
 	{
-		id: 'hat_crown',
-		name: 'Crown',
-		description: 'A regal crown that increases health by 25',
-		cost: 20,
+		id: 'hat_tophat',
+		name: 'Top Hat',
+		description: 'An elegant top hat that increases attack by 5',
+		cost: 30,
 		effect: {
 			type: 'hat',
 			hatId: 2,
-			stat: 'maxHealth',
-			amount: 25
+			filepath: '/hats/top-hat.png',
+			stat: 'attack',
+			amount: 5
 		}
 	},
 	{
@@ -47,118 +48,207 @@ const upgradeDefinitions: UpgradeDefinition[] = [
 		effect: {
 			type: 'hat',
 			hatId: 3,
+			filepath: '/hats/cowboy-hat.png',
 			stat: 'balanced',
 			attack: 2,
 			health: 10
 		}
 	},
 	{
-		id: 'hat_beret',
-		name: 'Beret',
-		description: 'A stylish beret that increases attack by 4',
-		cost: 22,
-		effect: {
-			type: 'hat',
-			hatId: 4,
-			stat: 'attack',
-			amount: 4
-		}
-	},
-	{
-		id: 'hat_helmet',
-		name: 'Helmet',
-		description: 'A protective helmet that increases health by 30',
-		cost: 25,
-		effect: {
-			type: 'hat',
-			hatId: 5,
-			stat: 'maxHealth',
-			amount: 30
-		}
-	},
-	{
-		id: 'hat_party',
-		name: 'Party Hat',
-		description: 'A festive hat that increases attack by 1 and health by 15',
-		cost: 12,
-		effect: {
-			type: 'hat',
-			hatId: 6,
-			stat: 'balanced',
-			attack: 1,
-			health: 15
-		}
-	},
-	{
-		id: 'hat_tophat',
-		name: 'Top Hat',
-		description: 'An elegant top hat that increases attack by 5',
-		cost: 30,
-		effect: {
-			type: 'hat',
-			hatId: 7,
-			stat: 'attack',
-			amount: 5
-		}
-	},
-	{
-		id: 'hat_cap',
-		name: 'Baseball Cap',
-		description: 'A casual cap that increases health by 20',
+		id: 'hat_blue_baseball',
+		name: 'Blue Baseball Hat',
+		description: 'A casual blue cap that increases health by 20',
 		cost: 10,
 		effect: {
 			type: 'hat',
-			hatId: 8,
+			hatId: 4,
+			filepath: '/hats/blue-baseball-hat.png',
 			stat: 'maxHealth',
 			amount: 20
 		}
 	},
 	{
-		id: 'hat_rock',
-		name: 'Rock Hat',
-		description: 'A sturdy hat that heals 5 health whenever you take damage',
-		cost: 25,
+		id: 'hat_red_baseball',
+		name: 'Red Baseball Hat',
+		description: 'A casual red cap that increases health by 20',
+		cost: 10,
+		effect: {
+			type: 'hat',
+			hatId: 5,
+			filepath: '/hats/red-baseball-hat.png',
+			stat: 'maxHealth',
+			amount: 20
+		}
+	},
+	{
+		id: 'hat_bunny_ears',
+		name: 'Bunny Ears',
+		description: 'Cute bunny ears that increase attack by 2',
+		cost: 12,
+		effect: {
+			type: 'hat',
+			hatId: 6,
+			filepath: '/hats/bunny-ears.png',
+			stat: 'attack',
+			amount: 2
+		}
+	},
+	{
+		id: 'hat_propeller',
+		name: 'Propeller Hat',
+		description: 'A fun propeller hat that increases attack by 3',
+		cost: 15,
+		effect: {
+			type: 'hat',
+			hatId: 7,
+			filepath: '/hats/propeller-hat.png',
+			stat: 'attack',
+			amount: 3
+		}
+	},
+	{
+		id: 'hat_pink_bow',
+		name: 'Pretty Pink Bow',
+		description: 'A pretty pink bow that increases health by 15',
+		cost: 12,
+		effect: {
+			type: 'hat',
+			hatId: 8,
+			filepath: '/hats/pretty-pink-bow.png',
+			stat: 'maxHealth',
+			amount: 15
+		}
+	},
+	{
+		id: 'hat_puke_penguin',
+		name: 'Puke Penguin Hat',
+		description: 'A puke penguin hat that increases health by 25',
+		cost: 20,
 		effect: {
 			type: 'hat',
 			hatId: 9,
-			stat: 'special', // Special effect, not a stat boost
-			amount: 0
+			filepath: '/hats/puke-penguin-hat.png',
+			stat: 'maxHealth',
+			amount: 25
+		}
+	},
+	{
+		id: 'hat_blue_penguin',
+		name: 'Blue Penguin Hat',
+		description: 'A blue penguin hat that increases health by 25',
+		cost: 20,
+		effect: {
+			type: 'hat',
+			hatId: 10,
+			filepath: '/hats/blue-penguin-hat.png',
+			stat: 'maxHealth',
+			amount: 25
+		}
+	},
+	{
+		id: 'hat_christmas',
+		name: 'Christmas Hat',
+		description: 'A festive Christmas hat that increases attack by 2 and health by 10',
+		cost: 18,
+		effect: {
+			type: 'hat',
+			hatId: 11,
+			filepath: '/hats/christmas-hat.png',
+			stat: 'balanced',
+			attack: 2,
+			health: 10
+		}
+	},
+	{
+		id: 'hat_dove',
+		name: 'Dove Hat',
+		description: 'A dove hat that increases attack by 3',
+		cost: 15,
+		effect: {
+			type: 'hat',
+			hatId: 12,
+			filepath: '/hats/dove-hat.png',
+			stat: 'attack',
+			amount: 3
+		}
+	},
+	{
+		id: 'hat_small_red_bird',
+		name: 'Small Red Bird',
+		description: 'A small red bird hat that increases attack by 2',
+		cost: 12,
+		effect: {
+			type: 'hat',
+			hatId: 13,
+			filepath: '/hats/small-red-bird.png',
+			stat: 'attack',
+			amount: 2
+		}
+	},
+	{
+		id: 'hat_hard_hat',
+		name: 'Hard Hat',
+		description: 'A protective hard hat that increases health by 30',
+		cost: 25,
+		effect: {
+			type: 'hat',
+			hatId: 14,
+			filepath: '/hats/hard-hat.png',
+			stat: 'maxHealth',
+			amount: 30
+		}
+	},
+	{
+		id: 'hat_leprechaun',
+		name: 'Leprechaun Hat',
+		description: 'A lucky leprechaun hat that increases attack by 4',
+		cost: 22,
+		effect: {
+			type: 'hat',
+			hatId: 15,
+			filepath: '/hats/leprechaun.png',
+			stat: 'attack',
+			amount: 4
+		}
+	},
+	{
+		id: 'hat_dude',
+		name: 'Dude Hat',
+		description: 'A cool dude hat that increases attack by 3 and health by 15',
+		cost: 20,
+		effect: {
+			type: 'hat',
+			hatId: 16,
+			filepath: '/hats/dude-hat.png',
+			stat: 'balanced',
+			attack: 3,
+			health: 15
 		}
 	}
 ];
 
-async function addUpgrade(upgradeDef: UpgradeDefinition) {
-	const existing = await db
-		.select()
-		.from(upgrades)
-		.where(eq(upgrades.id, upgradeDef.id))
-		.limit(1);
-
-	if (existing.length > 0) {
-		console.log(`Upgrade ${upgradeDef.id} already exists, skipping...`);
-		return existing[0];
-	}
-
-	const [upgrade] = await db
-		.insert(upgrades)
-		.values({
-			id: upgradeDef.id,
-			name: upgradeDef.name,
-			description: upgradeDef.description,
-			cost: upgradeDef.cost,
-			effect: upgradeDef.effect
-		})
-		.returning();
-
-	console.log(`Added upgrade: ${upgradeDef.name}`);
-	return upgrade;
-}
-
 export async function addUpgrades(): Promise<void> {
 	console.log('Seeding upgrades...');
-	for (const upgradeDef of upgradeDefinitions) {
-		await addUpgrade(upgradeDef);
-	}
+	
+	// Delete all existing upgrades to start fresh
+	await db.delete(upgrades);
+	console.log('Cleared existing upgrades');
+	
+	// Insert all upgrades from definitions
+	const insertedUpgrades = await db
+		.insert(upgrades)
+		.values(
+			upgradeDefinitions.map((upgradeDef) => ({
+				id: upgradeDef.id,
+				name: upgradeDef.name,
+				description: upgradeDef.description,
+				cost: upgradeDef.cost,
+				effect: upgradeDef.effect
+			}))
+		)
+		.returning();
+	
+	console.log(`Added ${insertedUpgrades.length} upgrades`);
 	console.log('Finished seeding upgrades');
 }
 

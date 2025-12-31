@@ -175,36 +175,36 @@
 			</div>
 		</div>
 	{:else if gameQuery.data && gameEngine}
-			<div class="flex flex-col">
-				<!-- Header with Back Button -->
-				<div class="flex items-center justify-between p-4">
+			<div class="relative h-screen overflow-hidden">
+				<!-- Header with Back Button and Boss Level - Fixed Overlay at Top -->
+				<div class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between bg-black/70 backdrop-blur-sm p-4 border-b border-gray-700">
 					<button
 						onclick={() => goto('/')}
 						class="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600"
 					>
 						← Back
 					</button>
+					<!-- Boss Level -->
 					<div class="text-white">
 						Boss Level: <span class="font-semibold text-purple-400">{gameQuery.data.bossLevel}</span>
 					</div>
-				</div>
-
-				<!-- Game Status -->
-				<div class="flex items-center justify-center gap-4 p-4">
-					{#if gameEngine.isGameOver()}
-						{#if gameEngine.isVictory()}
-							<div class="rounded-lg bg-green-600 px-6 py-3 text-xl font-bold text-white">
-								Victory! 🎉
-							</div>
+					<!-- Game Status -->
+					<div class="flex items-center justify-center gap-4">
+						{#if gameEngine.isGameOver()}
+							{#if gameEngine.isVictory()}
+								<div class="rounded-lg bg-green-600 px-6 py-3 text-xl font-bold text-white">
+									Victory! 🎉
+								</div>
+							{:else}
+								<div class="rounded-lg bg-red-600 px-6 py-3 text-xl font-bold text-white">Defeat!</div>
+							{/if}
 						{:else}
-							<div class="rounded-lg bg-red-600 px-6 py-3 text-xl font-bold text-white">Defeat!</div>
+							<div class="text-white">
+								Phase: <span class="font-semibold text-purple-400">{gameEngine.phase}</span>
+							</div>
+							<div class="text-sm text-gray-300">Auto-advancing every 1 second...</div>
 						{/if}
-					{:else}
-						<div class="text-white">
-							Phase: <span class="font-semibold text-purple-400">{gameEngine.phase}</span>
-						</div>
-						<div class="text-sm text-gray-300">Auto-advancing every 1 second...</div>
-					{/if}
+					</div>
 				</div>
 
 				<!-- Game Scene -->
