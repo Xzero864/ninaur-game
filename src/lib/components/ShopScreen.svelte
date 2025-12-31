@@ -72,6 +72,7 @@
 	let gold = $state(2);
 	let purchasing = $state(false);
 	let selectedHatItem = $state<ShopItem | null>(null);
+	let selectedCharacterItem = $state<ShopItem | null>(null);
 	let draggingHeroId = $state<number | null>(null);
 
 	// Reactive heroes state - update immediately when hats are purchased
@@ -130,10 +131,16 @@
 		}
 	}
 
-	async function purchaseCharacter(item: ShopItem) {
+	async function purchaseCharacter(item: ShopItem, removeCharacterId?: number) {
 		if (item.type !== 'character') return;
 		if (gold < item.cost) {
 			alert('Not enough gold!');
+			return;
+		}
+
+		// If team is full, prompt to remove one first.
+		if (heroes.length >= 5 && removeCharacterId === undefined) {
+			selectedCharacterItem = item;
 			return;
 		}
 
@@ -146,7 +153,8 @@
 				},
 				body: JSON.stringify({
 					characterTypeId: item.characterType.id,
-					hatId: null // No hat for new character
+					hatId: null, // No hat for new character
+					removeCharacterId: removeCharacterId ?? undefined
 				})
 			});
 
@@ -174,6 +182,7 @@
 			}
 
 			// Refetch shop items to get new random items
+			selectedCharacterItem = null;
 			shopItemsQuery.refetch();
 		} catch (error) {
 			console.error('Error purchasing character:', error);
@@ -317,7 +326,6 @@
 						</div>
 						<div class="text-center">
 							<div class="font-semibold text-white">{hero.characterType.name}</div>
-							<div class="text-sm text-gray-300">Level {hero.level || 1}</div>
 							<div class="text-xs text-gray-400">
 								❤️ {hero.stats.health}/{hero.stats.maxHealth} | ⚔️ {hero.stats.attack}
 							</div>
@@ -436,11 +444,14 @@
 			{@const hatDef = selectedHatItem.hat.hatId
 				? getHatDefinition(selectedHatItem.hat.hatId)
 				: null}
-			<div
-				class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-				onclick={() => (selectedHatItem = null)}
-			>
-				<div class="max-w-2xl rounded-lg bg-gray-800 p-6" onclick={(e) => e.stopPropagation()}>
+			<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<button
+					type="button"
+					class="absolute inset-0 bg-black/50"
+					aria-label="Close hat selection"
+					onclick={() => (selectedHatItem = null)}
+				></button>
+				<div class="relative max-w-2xl rounded-lg bg-gray-800 p-6" role="dialog" aria-modal="true">
 					<h3 class="mb-4 text-2xl font-bold text-white">
 						Select a character for {selectedHatItem.hat.name}
 					</h3>
@@ -480,6 +491,56 @@
 					<div class="mt-4 flex justify-end">
 						<button
 							onclick={() => (selectedHatItem = null)}
+							class="rounded-lg bg-gray-600 px-4 py-2 text-white transition-colors hover:bg-gray-500"
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Character Replacement Modal (when already at 5 heroes) -->
+		{#if selectedCharacterItem && selectedCharacterItem.type === 'character'}
+			{@const characterItem = selectedCharacterItem}
+			<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+				<button
+					type="button"
+					class="absolute inset-0 bg-black/50"
+					aria-label="Close character replacement"
+					onclick={() => (selectedCharacterItem = null)}
+				></button>
+				<div class="relative max-w-2xl rounded-lg bg-gray-800 p-6" role="dialog" aria-modal="true">
+					<h3 class="mb-2 text-2xl font-bold text-white">Your team is full</h3>
+					<p class="mb-4 text-gray-300">
+						Choose a character to remove to buy <span class="font-semibold text-white"
+							>{characterItem.characterType.name}</span
+						>.
+					</p>
+					<div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+						{#each heroes as hero}
+							<button
+								onclick={() => purchaseCharacter(characterItem, hero.id)}
+								disabled={purchasing || gold < characterItem.cost}
+								class="flex flex-col items-center gap-2 rounded-lg bg-gray-700 p-4 transition-all hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								<img
+									src={hero.characterType.imageUrl || '/characters/cat.png'}
+									alt={hero.characterType.name}
+									class="h-16 w-16 rounded-lg object-cover"
+								/>
+								<div class="text-center">
+									<div class="font-semibold text-white">{hero.characterType.name}</div>
+									<div class="text-xs text-gray-300">
+										❤️ {hero.stats.health}/{hero.stats.maxHealth} | ⚔️ {hero.stats.attack}
+									</div>
+								</div>
+							</button>
+						{/each}
+					</div>
+					<div class="mt-4 flex justify-end">
+						<button
+							onclick={() => (selectedCharacterItem = null)}
 							class="rounded-lg bg-gray-600 px-4 py-2 text-white transition-colors hover:bg-gray-500"
 						>
 							Cancel

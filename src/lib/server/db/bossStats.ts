@@ -21,12 +21,11 @@ export function getBossStats(level: number): Stats {
 		attack = 10 + (level - 3) * 5;
 	}
 
-	const health = level === 1 ? 1 : 50 * level;
-	
+	const health = level === 1 ? 30 : 50 * level;
+
 	return {
 		health: health,
 		maxHealth: health,
 		attack
 	};
 }
-

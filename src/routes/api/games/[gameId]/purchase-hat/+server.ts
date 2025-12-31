@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		}
 
 		const body = await request.json();
-		const { characterTypeId, hatId } = body;
+		const { characterTypeId, hatId, removeCharacterId } = body;
 
 		if (typeof characterTypeId !== 'number') {
 			return json({ error: 'Invalid character type ID' }, { status: 400 });
@@ -22,6 +22,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		// hatId can be null for characters without hats
 		if (hatId !== null && typeof hatId !== 'number') {
 			return json({ error: 'Invalid hat ID' }, { status: 400 });
+		}
+
+		if (removeCharacterId !== undefined && typeof removeCharacterId !== 'number') {
+			return json({ error: 'Invalid removeCharacterId' }, { status: 400 });
 		}
 
 		// Verify the game exists
@@ -40,6 +44,25 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 		if (!characterType) {
 			return json({ error: 'Character type not found' }, { status: 404 });
+		}
+
+		// Enforce max 5 heroes. If already at 5, require selecting one to remove.
+		const existingCharacters = await db
+			.select()
+			.from(characters)
+			.where(inArray(characters.id, game.characterIds));
+
+		const existingHeroIds = existingCharacters.filter((c) => c.type === 'hero').map((c) => c.id);
+		if (existingHeroIds.length >= 5) {
+			if (removeCharacterId === undefined) {
+				return json({ error: 'You already have 5 heroes. Select one to remove.' }, { status: 400 });
+			}
+			if (!existingHeroIds.includes(removeCharacterId)) {
+				return json(
+					{ error: 'Selected character to remove is not a hero in this game' },
+					{ status: 400 }
+				);
+			}
 		}
 
 		let initialStats = { ...characterType.baseStats };
@@ -92,13 +115,17 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			})
 			.returning();
 
-		// Add character to game
-		const updatedCharacterIds = [...game.characterIds, newCharacter.id];
+		// Remove selected hero if needed (swap)
+		let updatedCharacterIds = [...game.characterIds];
+		if (removeCharacterId !== undefined && existingHeroIds.length >= 5) {
+			updatedCharacterIds = updatedCharacterIds.filter((id) => id !== removeCharacterId);
+			await db.delete(characters).where(eq(characters.id, removeCharacterId));
+		}
 
-		await db
-			.update(games)
-			.set({ characterIds: updatedCharacterIds })
-			.where(eq(games.id, gameId));
+		// Add character to game
+		updatedCharacterIds = [...updatedCharacterIds, newCharacter.id];
+
+		await db.update(games).set({ characterIds: updatedCharacterIds }).where(eq(games.id, gameId));
 
 		return json({ success: true, character: newCharacter });
 	} catch (error) {
@@ -106,4 +133,3 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'Failed to purchase hat/character' }, { status: 500 });
 	}
 };
-

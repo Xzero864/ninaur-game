@@ -78,6 +78,7 @@
 	let shouldRestartGame = $state(false);
 	let gameInitialized = $state(false);
 	let battleWonApplied = $state(false);
+	let endRoundHealed = $state(false);
 
 	// Initialize game engine when data is loaded
 	$effect(() => {
@@ -151,12 +152,19 @@
 			}
 
 			if (currentEngine.phase === 'round-end') {
+				if (!endRoundHealed) {
+					endRoundHealed = true;
+					fetch(`/api/games/${gameId}/end-round`, { method: 'POST' }).catch((e) =>
+						console.error('Failed to apply end-round heal:', e)
+					);
+				}
 				// Navigate to shop screen when round ends
 				if (!showShop) {
 					showShop = true;
 					goto(`/game/shop/${gameId}`);
 				}
 			} else if (currentEngine.phase === 'action') {
+				endRoundHealed = false;
 				// Process next action
 				currentEngine.processNextAction();
 			}

@@ -100,7 +100,9 @@
 
 <div class="flex min-h-screen items-center justify-center bg-gray-900 p-4">
 	<div class="space-y-8 text-center">
-		<h1 class="mb-12 text-5xl font-bold text-white">Autobattler Game</h1>
+		<h1 class="mb-12 text-5xl font-bold text-white">
+			Lochy-Spoob-Cat-Bloob-Pocky-Duck-Medium-Bloob-Duck Game
+		</h1>
 
 		<div class="mx-auto flex max-w-md flex-col gap-4">
 			<button

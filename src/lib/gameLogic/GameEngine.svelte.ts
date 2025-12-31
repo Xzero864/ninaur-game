@@ -172,7 +172,7 @@ export class GameEngine {
 				this.currentHeroIndex++;
 				// Process next action if there are more heroes
 				this.processNextAction();
-			}, 1500);
+			}, 500);
 
 			// Create initial attack context with base damage
 			const attackContext: AbilityContext = {

@@ -28,9 +28,9 @@ export interface AttackAnimation {
  * Default attack animation configuration
  */
 const DEFAULT_ATTACK_CONFIG: AttackAnimationConfig = {
-	distance: 300, // Increased so characters actually touch
+	distance: 50, // Small bump forward (keeps characters mostly in place)
 	rotation: 0, // No rotation/tilt
-	scale: 1.3, // More dramatic scale
+	scale: 1.1, // Subtle punch-in
 	duration: 1500, // Animation duration
 	easing: 'ease-in-out'
 };

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { GameEngine } from '$lib/gameLogic';
+	import { onMount } from 'svelte';
+
 	interface Props {
 		bossLevel: number;
 	}

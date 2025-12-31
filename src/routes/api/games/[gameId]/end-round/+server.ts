@@ -4,6 +4,10 @@ import { games, characters } from '$lib/server/db/schema.js';
 import { eq, inArray } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
+/**
+ * End-of-round cleanup.
+ * Currently: fully heal all heroes to maxHealth so the next round starts fresh.
+ */
 export const POST: RequestHandler = async ({ params }) => {
 	try {
 		const gameId = Number(params.gameId);
@@ -15,7 +19,7 @@ export const POST: RequestHandler = async ({ params }) => {
 		if (!game) return json({ error: 'Game not found' }, { status: 404 });
 
 		if (!game.characterIds || game.characterIds.length === 0) {
-			return json({ success: true, updated: 0 });
+			return json({ success: true, healed: 0 });
 		}
 
 		const gameChars = await db
@@ -27,28 +31,19 @@ export const POST: RequestHandler = async ({ params }) => {
 
 		const updates = await Promise.all(
 			heroes.map(async (h) => {
-				const newMaxHealth = h.stats.maxHealth + 10;
-				const newStats = {
-					...h.stats,
-					maxHealth: newMaxHealth,
-					// Full heal at end of battle so the next round starts fresh
-					health: newMaxHealth,
-					attack: h.stats.attack + 2
-				};
-
+				const healedStats = { ...h.stats, health: h.stats.maxHealth };
 				const [updated] = await db
 					.update(characters)
-					.set({ stats: newStats })
+					.set({ stats: healedStats })
 					.where(eq(characters.id, h.id))
 					.returning();
-
 				return updated;
 			})
 		);
 
-		return json({ success: true, updated: updates.length, heroes: updates });
+		return json({ success: true, healed: updates.length, heroes: updates });
 	} catch (error) {
-		console.error('Error applying battle-won bonus:', error);
-		return json({ error: 'Failed to apply battle-won bonus' }, { status: 500 });
+		console.error('Error applying end-round heal:', error);
+		return json({ error: 'Failed to apply end-round heal' }, { status: 500 });
 	}
 };

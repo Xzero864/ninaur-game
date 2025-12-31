@@ -94,7 +94,7 @@
 </script>
 
 <div
-	class="relative inline-block rounded-lg border-2 border-gray-600"
+	class="relative inline-block rounded-lg"
 	class:attacking={isAttacking}
 	style="--attack-transform: {animation.getTransform(attackDirection)}; transform-origin: center;"
 	title={hatTooltip()}
@@ -109,7 +109,7 @@
 		<!-- Hat Display - Absolute pixel positioning -->
 		{#if hatId && hatFilepath()}
 			<div
-				class="absolute drop-shadow-lg"
+				class="absolute"
 				style="left: {hatX}px; top: {hatY - HAT_SIZE_PX}px; z-index: 10; pointer-events: none;"
 			>
 				<img
