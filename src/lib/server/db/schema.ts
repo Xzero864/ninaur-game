@@ -7,7 +7,9 @@ export const characterTypes = sqliteTable('character_types', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
 	imageUrl: text('image_url'),
-	baseStats: text('base_stats', { mode: 'json' }).$type<Stats>().notNull()
+	baseStats: text('base_stats', { mode: 'json' }).$type<Stats>().notNull(),
+	hatX: integer('hat_x').notNull().default(48),
+	hatY: integer('hat_y').notNull().default(32)
 });
 
 // Upgrades table

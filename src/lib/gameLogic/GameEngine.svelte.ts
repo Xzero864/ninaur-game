@@ -46,8 +46,9 @@ export class GameEngine {
 	}
 
 	// Load all hats from database (called once on app startup)
-	public async loadHats(): Promise<void> {
-		if (this.hatsLoaded) {
+	// `force` is useful in dev if seeding happens after initial load.
+	public async loadHats(force: boolean = false): Promise<void> {
+		if (this.hatsLoaded && !force) {
 			return; // Already loaded
 		}
 
@@ -57,24 +58,29 @@ export class GameEngine {
 				throw new Error('Failed to load hats');
 			}
 			const hats = await response.json();
-			
-			// Build cache map: hatId -> { hatId, filepath, ... }
+
+			// Build a NEW cache map so reactivity triggers reliably
+			const nextCache = new Map<number, HatData>();
 			for (const hat of hats) {
 				const effect = hat.effect as { hatId?: number; filepath?: string };
 				if (effect.hatId && effect.filepath) {
-					this.hatsCache.set(effect.hatId, {
+					nextCache.set(effect.hatId, {
 						hatId: effect.hatId,
 						filepath: effect.filepath,
 						...hat
 					});
 				}
 			}
-			
-			this.hatsLoaded = true;
-			console.log(`Loaded ${this.hatsCache.size} hats into cache`);
+
+			this.hatsCache = nextCache;
+			// If we didn't get any hats (e.g. before seeding), allow future retries.
+			this.hatsLoaded = nextCache.size > 0;
+			console.log(`Loaded ${nextCache.size} hats into cache`);
 		} catch (error) {
 			console.error('Error loading hats:', error);
-			// Don't throw - allow game to continue without hats
+			// Allow retries later
+			this.hatsCache = new Map();
+			this.hatsLoaded = false;
 		}
 	}
 
@@ -126,6 +132,11 @@ export class GameEngine {
 			return;
 		}
 
+		// Don't process next action if an animation is in progress
+		if (this.currentAttack !== null) {
+			return;
+		}
+
 		// Check if all heroes have acted
 		if (this.currentHeroIndex >= this.heroes.length) {
 			// All heroes have acted, now boss acts
@@ -157,6 +168,10 @@ export class GameEngine {
 			// Clear animation after animation completes
 			setTimeout(() => {
 				this.currentAttack = null;
+				// Move to next hero after animation completes
+				this.currentHeroIndex++;
+				// Process next action if there are more heroes
+				this.processNextAction();
 			}, 1500);
 
 			// Create initial attack context with base damage
@@ -171,10 +186,10 @@ export class GameEngine {
 
 			// Apply damage to target (takeDamage will process DAMAGE modifiers)
 			this.enemy.takeDamage(attackContext.damage, hero.id);
+		} else {
+			// Enemy is dead, move to next hero immediately
+			this.currentHeroIndex++;
 		}
-
-		// Move to next hero
-		this.currentHeroIndex++;
 	}
 
 	// Process boss action
@@ -211,7 +226,6 @@ export class GameEngine {
 			targetHero.takeDamage(attackContext.damage, this.enemy.id);
 		}
 	}
-
 
 	// End the round
 	endRound(): void {

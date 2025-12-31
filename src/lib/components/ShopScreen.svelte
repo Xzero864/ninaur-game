@@ -24,10 +24,12 @@
 				maxHealth: number;
 				attack: number;
 			};
+			hatX: number;
+			hatY: number;
 		};
 	};
 
-	type ShopItem = 
+	type ShopItem =
 		| {
 				type: 'character';
 				characterType: {
@@ -45,17 +47,17 @@
 		| {
 				type: 'hat';
 				hat: {
-		id: string;
-		name: string;
-		description: string;
+					id: string;
+					name: string;
+					description: string;
 					hatId: number;
-		effect: {
-			type: string;
-			[key: string]: unknown;
-		};
+					effect: {
+						type: string;
+						[key: string]: unknown;
+					};
 				};
 				cost: number;
-	};
+		  };
 
 	interface Props {
 		heroes: CharacterWithType[];
@@ -70,10 +72,11 @@
 	let gold = $state(2);
 	let purchasing = $state(false);
 	let selectedHatItem = $state<ShopItem | null>(null);
-	
+	let draggingHeroId = $state<number | null>(null);
+
 	// Reactive heroes state - update immediately when hats are purchased
 	let heroes = $state([...initialHeroes]);
-	
+
 	// Update heroes when prop changes
 	$effect(() => {
 		const currentHeroes = initialHeroes;
@@ -82,6 +85,32 @@
 		}
 	});
 
+	async function persistHeroOrder(nextHeroes: CharacterWithType[]) {
+		try {
+			await fetch(`/api/games/${gameId}/reorder-heroes`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ heroIds: nextHeroes.map((h) => h.id) })
+			});
+		} catch (e) {
+			console.error('Failed to persist hero order:', e);
+		}
+	}
+
+	function reorderHeroes(dragId: number, dropId: number) {
+		if (dragId === dropId) return;
+		const fromIndex = heroes.findIndex((h) => h.id === dragId);
+		const toIndex = heroes.findIndex((h) => h.id === dropId);
+		if (fromIndex === -1 || toIndex === -1) return;
+
+		const next = [...heroes];
+		const [moved] = next.splice(fromIndex, 1);
+		next.splice(toIndex, 0, moved);
+		heroes = next;
+		persistHeroOrder(next);
+
+		if (onHeroesUpdate) onHeroesUpdate(next);
+	}
 
 	// Fetch 5 random shop items (hat/character combinations)
 	const shopItemsQuery = createQuery(() => ({
@@ -156,7 +185,7 @@
 
 	async function purchaseHatForCharacter(characterId: number) {
 		if (!selectedHatItem || selectedHatItem.type !== 'hat') return;
-		
+
 		const hatItem = selectedHatItem; // Type narrowing
 		if (gold < hatItem.cost) {
 			alert('Not enough gold!');
@@ -222,22 +251,7 @@
 	}
 </script>
 
-<style>
-	.pixel-art-bg {
-		background-size: cover;
-		background-position: center;
-		background-repeat: no-repeat;
-		image-rendering: pixelated;
-		image-rendering: -moz-crisp-edges;
-		image-rendering: crisp-edges;
-		-ms-interpolation-mode: nearest-neighbor;
-	}
-</style>
-
-<div
-	class="min-h-screen p-8 pixel-art-bg"
-	style="background-image: url('{shopBg}');"
->
+<div class="pixel-art-bg min-h-screen p-8" style="background-image: url('{shopBg}');">
 	<div class="mx-auto max-w-6xl">
 		<!-- Header with Gold -->
 		<div class="mb-8 flex items-center justify-between">
@@ -260,18 +274,32 @@
 		<!-- Characters Section -->
 		<div class="mb-8">
 			<h2 class="mb-4 text-2xl font-semibold text-white">Your Characters</h2>
+			<p class="mb-3 text-sm text-gray-300">Drag to reorder (order affects battle turn order).</p>
 			<div class="flex flex-wrap gap-4">
 				{#each heroes as hero}
+					{@const heroHatDef = hero.hatId ? getHatDefinition(hero.hatId) : null}
 					<div
 						class="relative flex flex-col items-center gap-2 rounded-lg bg-gray-800/50 p-4 backdrop-blur-sm"
+						draggable="true"
+						role="listitem"
+						aria-label="Reorder character"
+						title={heroHatDef ? `${heroHatDef.modifier.name}: ${heroHatDef.description}` : ''}
+						ondragstart={() => (draggingHeroId = hero.id)}
+						ondragover={(e) => {
+							e.preventDefault();
+						}}
+						ondrop={() => {
+							if (draggingHeroId !== null) reorderHeroes(draggingHeroId, hero.id);
+							draggingHeroId = null;
+						}}
 					>
 						<!-- Character Image with Hat -->
 						<div class="relative">
-						<img
-							src={hero.characterType.imageUrl || '/characters/cat.png'}
-							alt={hero.characterType.name}
-							class="h-24 w-24 rounded-lg object-cover"
-						/>
+							<img
+								src={hero.characterType.imageUrl || '/characters/cat.png'}
+								alt={hero.characterType.name}
+								class="h-24 w-24 rounded-lg object-cover"
+							/>
 							<!-- Hat Display - Top Center -->
 							{#if hero.hatId && getHatFilepath(hero.hatId)}
 								<div
@@ -281,7 +309,7 @@
 									<img
 										src={getHatFilepath(hero.hatId)!}
 										alt="Hat"
-										class="h-6 w-6 pixel-art-character"
+										class="pixel-art-character h-6 w-6"
 										style="image-rendering: pixelated; image-rendering: crisp-edges;"
 									/>
 								</div>
@@ -322,7 +350,9 @@
 								class="relative flex flex-col gap-2 rounded-lg bg-gray-800/50 p-4 text-left transition-all hover:bg-gray-700/50 disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								<!-- Gold Cost - Top Right -->
-								<div class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-yellow-600 px-2 py-1">
+								<div
+									class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-yellow-600 px-2 py-1"
+								>
 									<svg class="h-4 w-4 text-yellow-200" fill="currentColor" viewBox="0 0 24 24">
 										<path
 											d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"
@@ -352,13 +382,15 @@
 						{:else}
 							{@const hatDef = item.hat.hatId ? getHatDefinition(item.hat.hatId) : null}
 							<!-- Hat Item -->
-						<button
+							<button
 								onclick={() => selectHatItem(item)}
 								disabled={!canAfford || purchasing}
 								class="relative flex flex-col gap-2 rounded-lg bg-gray-800/50 p-4 text-left transition-all hover:bg-gray-700/50 disabled:cursor-not-allowed disabled:opacity-50"
-						>
+							>
 								<!-- Gold Cost - Top Right -->
-								<div class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-yellow-600 px-2 py-1">
+								<div
+									class="absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-yellow-600 px-2 py-1"
+								>
 									<svg class="h-4 w-4 text-yellow-200" fill="currentColor" viewBox="0 0 24 24">
 										<path
 											d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z"
@@ -369,12 +401,14 @@
 
 								<!-- Hat Display -->
 								<div class="flex justify-center">
-									<div class="flex h-24 w-24 items-center justify-center rounded-lg bg-purple-600/30">
+									<div
+										class="flex h-24 w-24 items-center justify-center rounded-lg bg-purple-600/30"
+									>
 										{#if item.hat.hatId && getHatFilepath(item.hat.hatId)}
 											<img
 												src={getHatFilepath(item.hat.hatId)!}
 												alt={item.hat.name}
-												class="h-20 w-20 pixel-art-character drop-shadow-lg"
+												class="pixel-art-character h-20 w-20 drop-shadow-lg"
 												style="image-rendering: pixelated; image-rendering: crisp-edges;"
 											/>
 										{:else}
@@ -388,9 +422,9 @@
 									<div class="font-semibold text-white">{item.hat.name}</div>
 									<div class="mt-1 text-xs font-semibold text-purple-300">
 										{hatDef?.description || item.hat.description}
+									</div>
 								</div>
-							</div>
-						</button>
+							</button>
 						{/if}
 					{/each}
 				</div>
@@ -399,15 +433,14 @@
 
 		<!-- Hat Selection Modal -->
 		{#if selectedHatItem && selectedHatItem.type === 'hat'}
-			{@const hatDef = selectedHatItem.hat.hatId ? getHatDefinition(selectedHatItem.hat.hatId) : null}
+			{@const hatDef = selectedHatItem.hat.hatId
+				? getHatDefinition(selectedHatItem.hat.hatId)
+				: null}
 			<div
 				class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
 				onclick={() => (selectedHatItem = null)}
 			>
-				<div
-					class="max-w-2xl rounded-lg bg-gray-800 p-6"
-					onclick={(e) => e.stopPropagation()}
-				>
+				<div class="max-w-2xl rounded-lg bg-gray-800 p-6" onclick={(e) => e.stopPropagation()}>
 					<h3 class="mb-4 text-2xl font-bold text-white">
 						Select a character for {selectedHatItem.hat.name}
 					</h3>
@@ -435,7 +468,7 @@
 											<img
 												src={getHatFilepath(hero.hatId)!}
 												alt="Current hat"
-												class="h-4 w-4 pixel-art-character"
+												class="pixel-art-character h-4 w-4"
 												style="image-rendering: pixelated; image-rendering: crisp-edges;"
 											/>
 										</div>
@@ -468,3 +501,14 @@
 	</div>
 </div>
 
+<style>
+	.pixel-art-bg {
+		background-size: cover;
+		background-position: center;
+		background-repeat: no-repeat;
+		image-rendering: pixelated;
+		image-rendering: -moz-crisp-edges;
+		image-rendering: crisp-edges;
+		-ms-interpolation-mode: nearest-neighbor;
+	}
+</style>

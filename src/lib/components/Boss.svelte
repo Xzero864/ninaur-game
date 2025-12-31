@@ -24,6 +24,8 @@
 	const isBossAttacking = $derived(
 		gameEngine?.currentAttack?.attackerId === bossId.toString()
 	);
+
+	const bossImageUrl = '/characters/boss.png';
 </script>
 
 <div
@@ -32,7 +34,7 @@
 	style="--attack-transform: {bossLeftTransform}; transform-origin: center;"
 >
 	<div
-		class="relative flex h-40 w-40 items-center justify-center rounded-lg bg-red-600 shadow-lg transition-transform hover:scale-105"
+		class="relative flex h-40 w-40 items-center justify-center rounded-lg bg-black shadow-lg transition-transform hover:scale-105"
 		style="filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));"
 	>
 		<!-- Level Indicator (Circle) - Top Left -->
@@ -42,8 +44,13 @@
 			<span class="text-sm font-bold text-white">{bossLevel}</span>
 		</div>
 
-		<!-- Devil Emoji -->
-		<div class="text-6xl">😈</div>
+		<!-- Boss Sprite -->
+		<img
+			src={bossImageUrl}
+			alt="Boss"
+			class="pixel-art-character h-32 w-32 rounded-lg object-cover"
+			style="image-rendering: pixelated; image-rendering: crisp-edges;"
+		/>
 
 		<!-- Health and Attack Overlays (Bottom) -->
 		<div class="absolute -bottom-2 left-1/2 flex -translate-x-1/2 gap-2">

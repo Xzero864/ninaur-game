@@ -41,9 +41,15 @@ export const GET: RequestHandler = async ({ params }) => {
 			characterType: characterTypeMap.get(c.characterTypeId)
 		}));
 
-		// Separate heroes and enemies
-		const heroes = gameCharactersWithTypes.filter((c) => c.type === 'hero');
-		const enemies = gameCharactersWithTypes.filter((c) => c.type === 'enemy');
+		// Order characters based on game's characterIds
+		const byId = new Map(gameCharactersWithTypes.map((c) => [c.id, c] as const));
+		const orderedCharacters = game.characterIds
+			.map((id) => byId.get(id))
+			.filter((c): c is (typeof gameCharactersWithTypes)[number] => Boolean(c));
+
+		// Separate heroes and enemies (ordered)
+		const heroes = orderedCharacters.filter((c) => c.type === 'hero');
+		const enemies = orderedCharacters.filter((c) => c.type === 'enemy');
 
 		// Scale boss stats based on boss level
 		const scaledEnemies = enemies.map((e) => {
@@ -291,7 +297,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 		const [updatedGame] = await db
 			.update(games)
-			.set({ 
+			.set({
 				characterIds: updatedCharacterIds,
 				bossLevel: newBossLevel
 			})

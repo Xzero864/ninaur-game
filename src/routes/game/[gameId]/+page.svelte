@@ -27,6 +27,8 @@
 				maxHealth: number;
 				attack: number;
 			};
+			hatX: number;
+			hatY: number;
 		};
 	};
 
@@ -75,6 +77,7 @@
 	let showShop = $state(false); // Track if we've navigated to shop to prevent multiple navigations
 	let shouldRestartGame = $state(false);
 	let gameInitialized = $state(false);
+	let battleWonApplied = $state(false);
 
 	// Initialize game engine when data is loaded
 	$effect(() => {
@@ -87,7 +90,6 @@
 		gameEngine.initialize(heroes, bossCharacter);
 		gameInitialized = true;
 	});
-
 
 	// Auto-start first round when engine is ready and set up auto-progression
 	$effect(() => {
@@ -113,7 +115,20 @@
 					intervalId = null;
 				}
 				// Check for victory - navigate to shop screen
-				if (currentEngine && currentEngine.isVictory() && !showSimpleVictory && !showShop && !showSimpleDefeat) {
+				if (
+					currentEngine &&
+					currentEngine.isVictory() &&
+					!showSimpleVictory &&
+					!showShop &&
+					!showSimpleDefeat
+				) {
+					if (!battleWonApplied) {
+						battleWonApplied = true;
+						// Persist permanent "battle won" bonuses to DB (+10 health, +10 maxHealth, +2 attack)
+						fetch(`/api/games/${gameId}/battle-won`, { method: 'POST' }).catch((e) =>
+							console.error('Failed to apply battle-won bonus:', e)
+						);
+					}
 					showSimpleVictory = true;
 					// After 2 seconds, navigate to shop screen
 					setTimeout(() => {
@@ -123,7 +138,13 @@
 					}, 2000);
 				}
 				// Check for defeat - show defeat screen
-				if (currentEngine && !currentEngine.isVictory() && !showSimpleDefeat && !showShop && !showSimpleVictory) {
+				if (
+					currentEngine &&
+					!currentEngine.isVictory() &&
+					!showSimpleDefeat &&
+					!showShop &&
+					!showSimpleVictory
+				) {
 					showSimpleDefeat = true;
 				}
 				return;
@@ -175,75 +196,79 @@
 			</div>
 		</div>
 	{:else if gameQuery.data && gameEngine}
-			<div class="relative h-screen overflow-hidden">
-				<!-- Header with Back Button and Boss Level - Fixed Overlay at Top -->
-				<div class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between bg-black/70 backdrop-blur-sm p-4 border-b border-gray-700">
-					<button
-						onclick={() => goto('/')}
-						class="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600"
-					>
-						← Back
-					</button>
-					<!-- Boss Level -->
-					<div class="text-white">
-						Boss Level: <span class="font-semibold text-purple-400">{gameQuery.data.bossLevel}</span>
-					</div>
-					<!-- Game Status -->
-					<div class="flex items-center justify-center gap-4">
-						{#if gameEngine.isGameOver()}
-							{#if gameEngine.isVictory()}
-								<div class="rounded-lg bg-green-600 px-6 py-3 text-xl font-bold text-white">
-									Victory! 🎉
-								</div>
-							{:else}
-								<div class="rounded-lg bg-red-600 px-6 py-3 text-xl font-bold text-white">Defeat!</div>
-							{/if}
-						{:else}
-							<div class="text-white">
-								Phase: <span class="font-semibold text-purple-400">{gameEngine.phase}</span>
-							</div>
-							<div class="text-sm text-gray-300">Auto-advancing every 1 second...</div>
-						{/if}
-					</div>
+		<div class="relative h-screen overflow-hidden">
+			<!-- Header with Back Button and Boss Level - Fixed Overlay at Top -->
+			<div
+				class="absolute top-0 right-0 left-0 z-20 flex items-center justify-between border-b border-gray-700 bg-black/70 p-4 backdrop-blur-sm"
+			>
+				<button
+					onclick={() => goto('/')}
+					class="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600"
+				>
+					← Back
+				</button>
+				<!-- Boss Level -->
+				<div class="text-white">
+					Boss Level: <span class="font-semibold text-purple-400">{gameQuery.data.bossLevel}</span>
 				</div>
-
-				<!-- Game Scene -->
-				{#if gameEngine}
-					<GameScene
-						gameName={gameQuery.data.name}
-						heroes={gameQuery.data.heroes}
-						{boss}
-						{gameEngine}
-						bossLevel={gameQuery.data.bossLevel}
-					/>
-				{/if}
+				<!-- Game Status -->
+				<div class="flex items-center justify-center gap-4">
+					{#if gameEngine.isGameOver()}
+						{#if gameEngine.isVictory()}
+							<div class="rounded-lg bg-green-600 px-6 py-3 text-xl font-bold text-white">
+								Victory! 🎉
+							</div>
+						{:else}
+							<div class="rounded-lg bg-red-600 px-6 py-3 text-xl font-bold text-white">
+								Defeat!
+							</div>
+						{/if}
+					{:else}
+						<div class="text-white">
+							Phase: <span class="font-semibold text-purple-400">{gameEngine.phase}</span>
+						</div>
+						<div class="text-sm text-gray-300">Auto-advancing every 1 second...</div>
+					{/if}
+				</div>
 			</div>
-		{/if}
 
-		<!-- Simple Victory Screen -->
-		{#if showSimpleVictory && gameQuery.data}
-			<SimpleVictoryScreen bossLevel={gameQuery.data.bossLevel} />
-		{/if}
+			<!-- Game Scene -->
+			{#if gameEngine}
+				<GameScene
+					gameName={gameQuery.data.name}
+					heroes={gameQuery.data.heroes}
+					{boss}
+					{gameEngine}
+					bossLevel={gameQuery.data.bossLevel}
+				/>
+			{/if}
+		</div>
+	{/if}
 
-		<!-- Simple Defeat Screen -->
-		{#if showSimpleDefeat && gameQuery.data}
-			<SimpleDefeatScreen
-				bossLevel={gameQuery.data.bossLevel}
-				onOkay={async () => {
-					// Delete the game
-					try {
-						const response = await fetch(`/api/games/${gameId}`, {
-							method: 'DELETE'
-						});
-						if (!response.ok) {
-							console.error('Failed to delete game');
-						}
-					} catch (error) {
-						console.error('Error deleting game:', error);
+	<!-- Simple Victory Screen -->
+	{#if showSimpleVictory && gameQuery.data}
+		<SimpleVictoryScreen bossLevel={gameQuery.data.bossLevel} />
+	{/if}
+
+	<!-- Simple Defeat Screen -->
+	{#if showSimpleDefeat && gameQuery.data}
+		<SimpleDefeatScreen
+			bossLevel={gameQuery.data.bossLevel}
+			onOkay={async () => {
+				// Delete the game
+				try {
+					const response = await fetch(`/api/games/${gameId}`, {
+						method: 'DELETE'
+					});
+					if (!response.ok) {
+						console.error('Failed to delete game');
 					}
-					// Navigate to home
-					goto('/');
-				}}
-			/>
-		{/if}
+				} catch (error) {
+					console.error('Error deleting game:', error);
+				}
+				// Navigate to home
+				goto('/');
+			}}
+		/>
+	{/if}
 </div>

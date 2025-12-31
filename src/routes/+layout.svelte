@@ -8,17 +8,6 @@
 	let { children, data }: { children: any; data: LayoutData } = $props();
 
 	onMount(async () => {
-		try {
-			await fetch('/api/seed-characters', { method: 'POST' });
-		} catch (error) {
-			console.error('Failed to seed characters:', error);
-		}
-		try {
-			await fetch('/api/seed-upgrades', { method: 'POST' });
-		} catch (error) {
-			console.error('Failed to seed upgrades:', error);
-		}
-		
 		// Load hats into GameEngine cache
 		try {
 			const { GameEngine } = await import('$lib/gameLogic/GameEngine.svelte.js');

@@ -4,6 +4,19 @@ import { games, characters, upgrades, characterTypes } from '$lib/server/db/sche
 import { eq, inArray } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 
+type HatDelta = { attack: number; maxHealth: number };
+
+function hatDeltaFromEffect(effect: any): HatDelta {
+	if (!effect || effect.type !== 'hat') return { attack: 0, maxHealth: 0 };
+	const stat = effect.stat as string;
+	if (stat === 'attack') return { attack: Number(effect.amount ?? 0), maxHealth: 0 };
+	if (stat === 'maxHealth' || stat === 'health')
+		return { attack: 0, maxHealth: Number(effect.amount ?? 0) };
+	if (stat === 'balanced')
+		return { attack: Number(effect.attack ?? 0), maxHealth: Number(effect.health ?? 0) };
+	return { attack: 0, maxHealth: 0 };
+}
+
 export const POST: RequestHandler = async ({ params, request }) => {
 	try {
 		const gameId = parseInt(params.gameId);
@@ -42,17 +55,13 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		}
 
 		// Get the upgrade definition
-		const [upgrade] = await db
-			.select()
-			.from(upgrades)
-			.where(eq(upgrades.id, upgradeId))
-			.limit(1);
+		const [upgrade] = await db.select().from(upgrades).where(eq(upgrades.id, upgradeId)).limit(1);
 
 		if (!upgrade) {
 			return json({ error: 'Upgrade not found' }, { status: 404 });
 		}
 
-		// Get character type to recalculate from base stats
+		// Get character type (kept for validation/consistency)
 		const [characterType] = await db
 			.select()
 			.from(characterTypes)
@@ -63,32 +72,49 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			return json({ error: 'Character type not found' }, { status: 404 });
 		}
 
-		// Apply the upgrade effect (only hats now)
+		// Apply the upgrade effect (hats)
 		const effect = upgrade.effect as { type: string; [key: string]: unknown };
-		
-		// Recalculate stats from base stats + new hat (removes old hat stats)
-		let newStats = { ...characterType.baseStats };
-		newStats.health = newStats.maxHealth; // Start with full health
-		let newHatId = effect.hatId as number;
-
-		if (effect.type === 'hat') {
-			const stat = effect.stat as string;
-			if (stat === 'attack') {
-				newStats.attack = (newStats.attack || 0) + (effect.amount as number);
-			} else if (stat === 'maxHealth' || stat === 'health') {
-				newStats.maxHealth = (newStats.maxHealth || 0) + (effect.amount as number);
-				newStats.health = newStats.maxHealth;
-			} else if (stat === 'balanced') {
-			newStats.maxHealth = (newStats.maxHealth || 0) + (effect.health as number);
-				newStats.health = newStats.maxHealth;
-			newStats.attack = (newStats.attack || 0) + (effect.attack as number);
+		if (effect.type !== 'hat') {
+			return json({ error: 'Only hat upgrades are supported' }, { status: 400 });
 		}
 
-			// Preserve current health if it's less than new max (don't heal when changing hats)
-			if (character.stats.health < character.stats.maxHealth) {
-				newStats.health = Math.min(character.stats.health, newStats.maxHealth);
+		const newHatId = effect.hatId as number;
+
+		// Preserve permanent gains (like battle-won bonuses) by adjusting ONLY the hat delta.
+		const currentStats = character.stats;
+
+		const allUpgrades = await db.select().from(upgrades);
+
+		const oldHatId = character.hatId ?? null;
+		let oldHatDelta: HatDelta = { attack: 0, maxHealth: 0 };
+		if (oldHatId) {
+			const oldHatUpgrade = allUpgrades.find((u) => {
+				const e = u.effect as { type?: string; hatId?: number };
+				return e.type === 'hat' && e.hatId === oldHatId;
+			});
+			if (oldHatUpgrade) {
+				oldHatDelta = hatDeltaFromEffect(oldHatUpgrade.effect);
 			}
 		}
+
+		const newHatDelta = hatDeltaFromEffect(effect);
+
+		// Remove old hat delta from current stats, then add new hat delta.
+		const baseAttack = currentStats.attack - oldHatDelta.attack;
+		const baseMaxHealth = currentStats.maxHealth - oldHatDelta.maxHealth;
+
+		const nextMaxHealth = baseMaxHealth + newHatDelta.maxHealth;
+		const nextAttack = baseAttack + newHatDelta.attack;
+
+		// Do NOT heal when swapping hats; only clamp if max health shrinks.
+		const nextHealth = Math.min(currentStats.health, nextMaxHealth);
+
+		const newStats = {
+			...currentStats,
+			attack: nextAttack,
+			maxHealth: nextMaxHealth,
+			health: nextHealth
+		};
 
 		// Update character with new stats and hat ID
 		const [updatedCharacter] = await db
@@ -110,4 +136,3 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'Failed to apply upgrade' }, { status: 500 });
 	}
 };
-

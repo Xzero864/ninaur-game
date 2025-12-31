@@ -4,15 +4,17 @@ import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async () => {
 	try {
-		const characterTypes = await addCharacters();
-		return json({ 
-			message: 'Characters seeded successfully',
-			count: characterTypes.length,
-			characterTypes 
-		}, { status: 201 });
+		const characterTypesResult = await addCharacters();
+		return json(
+			{
+				message: 'Characters seeded successfully',
+				count: characterTypesResult.length,
+				characterTypes: characterTypesResult
+			},
+			{ status: 201 }
+		);
 	} catch (error) {
 		console.error('Error seeding characters:', error);
 		return json({ error: 'Failed to seed characters' }, { status: 500 });
 	}
 };
-

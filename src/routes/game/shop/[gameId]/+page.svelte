@@ -25,6 +25,8 @@
 				maxHealth: number;
 				attack: number;
 			};
+			hatX: number;
+			hatY: number;
 		};
 	};
 
@@ -96,13 +98,14 @@
 
 			// Refetch game data to get updated boss stats
 			const result = await gameQuery.refetch();
-			
+
 			// Reinitialize game engine with updated boss
 			if (result.data) {
-				const updatedBoss = result.data.enemies && result.data.enemies.length > 0
-					? result.data.enemies[0]
-					: undefined;
-				
+				const updatedBoss =
+					result.data.enemies && result.data.enemies.length > 0
+						? result.data.enemies[0]
+						: undefined;
+
 				if (updatedBoss) {
 					const heroes = result.data.heroes.map(createCharacterFromDb);
 					const bossCharacter = createCharacterFromDb(updatedBoss);
@@ -143,4 +146,3 @@
 		/>
 	{/if}
 </div>
-

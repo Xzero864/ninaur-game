@@ -31,7 +31,7 @@ const DEFAULT_ATTACK_CONFIG: AttackAnimationConfig = {
 	distance: 300, // Increased so characters actually touch
 	rotation: 0, // No rotation/tilt
 	scale: 1.3, // More dramatic scale
-	duration: 1500, // 25% faster than 2000ms
+	duration: 1500, // Animation duration
 	easing: 'ease-in-out'
 };
 
